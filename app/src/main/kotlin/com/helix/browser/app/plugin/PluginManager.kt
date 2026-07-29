@@ -38,7 +38,7 @@ class PluginManager(private val context: Context) {
                             name = json.getString("name"),
                             version = json.getString("version"),
                             description = json.optString("description", ""),
-                            matches = json.getJSONArray("matches").map { it.toString() },
+                            matches = (0 until json.getJSONArray("matches"),length()).map { json.getJSONArray("matches").getString(it)
                             css = json.optString("css", null)?.let { File(pluginFolder, it).takeIf { it.exists() }?.readText() },
                             js = json.optString("js", null)?.let { File(pluginFolder, it).takeIf { it.exists() }?.readText() },
                             enabled = json.optBoolean("enabled", true),
