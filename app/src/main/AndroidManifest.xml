@@ -13,6 +13,10 @@
         
         <activity android:name=".DefaultActivity"
             android:exported="true">
+        <activity android:name=".BookmarksActivity"
+                  android:parentActivityName=".DefaultActivity" />
+        <activity android:name=".HistoryActivity"
+                  android:parentActivityName=".DefaultActivity" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
