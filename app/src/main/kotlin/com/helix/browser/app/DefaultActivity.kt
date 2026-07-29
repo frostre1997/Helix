@@ -24,12 +24,29 @@ import kotlinx.coroutines.launch
 
 class DefaultActivity : AppCompatActivity() {
 
+    // ----- Properties declared at class level -----
     private lateinit var viewPager: ViewPager2
     private lateinit var adapter: TabAdapter
     private lateinit var urlInput: EditText
     private lateinit var swipeRefresh: SwipeRefreshLayout
     private val tabTitles = mutableMapOf<TabFragment, String>()
 
+    // PluginManager – use 'var' with lateinit
+    lateinit var pluginManager: PluginManager
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)  // ← parentheses added
+        setContentView(R.layout.activity_default_tabs)
+
+        // Initialize views
+        viewPager = findViewById(R.id.viewPager)
+        // ... etc ...
+
+        // Initialize plugin manager
+        pluginManager = PluginManager(this)
+    }
+}
+    
     companion object {
         private const val REQUEST_BOOKMARKS = 1001
         private const val REQUEST_HISTORY = 1002
