@@ -1,38 +1,52 @@
 plugins {
-    id 'com.android.application'
-    id 'org.jetbrains.kotlin.android'
+    id("com.android.application")
+    id("org.jetbrains.kotlin.android")
 }
 
 android {
-    namespace 'com.helix.browser.app'
-    compileSdk 34
+    namespace = "com.helix.browser.app"
+    compileSdk = 34
 
     defaultConfig {
-        applicationId 'com.helix.browser.app'
-        minSdk 21
-        targetSdk 34
-        versionCode 10000 // or "100.0.0"
-        versionName "100.0.0"
+        applicationId = "com.helix.browser.app"
+        minSdk = 21
+        targetSdk = 34
+        versionCode = 1
+        versionName = "100.0.0.00"
     }
 
     buildTypes {
         release {
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            isMinifyEnabled = false
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
+
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
     }
+
     kotlinOptions {
-        jvmTarget = '1.8'
+        jvmTarget = "1.8"
+    }
+
+    // Enable View Binding if you want to use it later
+    buildFeatures {
+        viewBinding = true
     }
 }
 
 dependencies {
-    implementation 'androidx.core:core-ktx:1.12.0'
-    implementation 'androidx.appcompat:appcompat:1.6.1'
-    implementation 'com.google.android.material:material:1.11.0'
-    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+    implementation("androidx.core:core-ktx:1.12.0")
+    implementation("androidx.appcompat:appcompat:1.6.1")
+    implementation("com.google.android.material:material:1.11.0")
+    implementation("androidx.constraintlayout:constraintlayout:2.1.4")
+
+    implementation("androidx.preference:preference-ktx:1.2.1")
+
+    implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
 }
