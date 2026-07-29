@@ -1,5 +1,6 @@
 package com.helix.browser.app
 
+import com.helix.browser.app.DefaultActivity
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
