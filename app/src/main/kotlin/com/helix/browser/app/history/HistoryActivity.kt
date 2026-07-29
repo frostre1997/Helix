@@ -1,5 +1,6 @@
 package com.helix.browser.app
 
+import android.view.ViewGroup
 import android.os.Bundle
 import android.view.ViewGroup
 import android.widget.*
