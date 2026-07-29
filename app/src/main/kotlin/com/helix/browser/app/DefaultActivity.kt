@@ -1,139 +1,92 @@
-package com.helix.browser.app
+// Add these imports
+import androidx.lifecycle.lifecycleScope
+import com.helix.browser.app.data.AppDatabase
+import com.helix.browser.app.data.Bookmark
+import com.helix.browser.app.data.History
+import kotlinx.coroutines.launch
 
-import android.os.Bundle
-import android.view.Menu
-import android.view.MenuItem
-import androidx.appcompat.app.AppCompatActivity
-import androidx.viewpager2.widget.ViewPager2
-import com.google.android.material.bottomsheet.BottomSheetDialogFragment
-
-class DefaultActivity : AppCompatActivity() {
-
-    private lateinit var viewPager: ViewPager2
-    private lateinit var adapter: TabAdapter
-    private val tabTitles = mutableMapOf<TabFragment, String>()
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_default_tabs)  // new layout with ViewPager2
-
-        viewPager = findViewById(R.id.viewPager)
-        adapter = TabAdapter(this)
-        viewPager.adapter = adapter
-
-        // Add initial tab
-        addNewTab()
+// In onCreateOptionsMenu, add new items:
+override fun onCreateOptionsMenu(menu: Menu?): Boolean {
+    menuInflater.inflate(R.menu.main_menu, menu)
+    // Update badge
+    val tabItem = menu?.findItem(R.id.action_tabs)
+    tabItem?.title = "Tabs (${getTabCount()})"
+    // Update bookmark icon state
+    val bookmarkItem = menu?.findItem(R.id.action_bookmark)
+    val currentUrl = getCurrentTab()?.url ?: ""
+    lifecycleScope.launch {
+        val bookmark = AppDatabase.getInstance(this@DefaultActivity).bookmarkDao().getBookmarkByUrl(currentUrl)
+        bookmarkItem?.setIcon(if (bookmark != null) 
+            android.R.drawable.btn_star_big_on 
+            else android.R.drawable.btn_star_big_off)
     }
+    return true
+}
 
-    override fun onCreateOptionsMenu(menu: Menu?): Boolean {
-        menuInflater.inflate(R.menu.main_menu, menu)
-        // Update tab count badge
-        val tabItem = menu?.findItem(R.id.action_tabs)
-        val tabCount = adapter.getTabCount()
-        tabItem?.title = if (tabCount > 0) "Tabs ($tabCount)" else "Tabs"
-        return true
-    }
+// Handle bookmark click
+R.id.action_bookmark -> {
+    toggleBookmark()
+    return true
+}
+R.id.action_bookmarks -> {
+    startActivityForResult(Intent(this, BookmarksActivity::class.java), REQUEST_BOOKMARKS)
+    return true
+}
+R.id.action_history -> {
+    startActivityForResult(Intent(this, HistoryActivity::class.java), REQUEST_HISTORY)
+    return true
+}
 
-    override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        when (item.itemId) {
-            R.id.action_tabs -> {
-                showTabSwitcher()
-                return true
-            }
-            R.id.action_refresh -> {
-                getCurrentTab()?.reload()
-                return true
-            }
-            R.id.action_back -> {
-                val tab = getCurrentTab()
-                if (tab?.canGoBack() == true) {
-                    tab.goBack()
-                }
-                return true
-            }
-            R.id.action_forward -> {
-                // We skipped forward for simplicity, but you can add later
-                return true
-            }
-            R.id.action_settings -> {
-                startActivity(Intent(this, SettingsActivity::class.java))
-                return true
-            }
-        }
-        return super.onOptionsItemSelected(item)
-    }
-
-    override fun onBackPressed() {
-        val tab = getCurrentTab()
-        if (tab != null && tab.canGoBack()) {
-            tab.goBack()
+// Add toggle function
+private fun toggleBookmark() {
+    val tab = getCurrentTab() ?: return
+    val url = tab.webView.url ?: return
+    val title = supportActionBar?.title?.toString() ?: url
+    lifecycleScope.launch {
+        val db = AppDatabase.getInstance(this@DefaultActivity)
+        val existing = db.bookmarkDao().getBookmarkByUrl(url)
+        if (existing != null) {
+            db.bookmarkDao().delete(existing)
+            Toast.makeText(this@DefaultActivity, "Bookmark removed", Toast.LENGTH_SHORT).show()
         } else {
-            super.onBackPressed()
+            db.bookmarkDao().insert(Bookmark(url = url, title = title))
+            Toast.makeText(this@DefaultActivity, "Bookmark added", Toast.LENGTH_SHORT).show()
         }
-    }
-
-    // ---------- Tab Management ----------
-    fun addNewTab(url: String = "https://www.google.com") {
-        val fragment = TabFragment().apply { this.url = url }
-        adapter.addTab(fragment)
-        viewPager.setCurrentItem(adapter.getTabCount() - 1, true)
-        // Update the tab title (will be set via WebChromeClient)
-        // We'll also update the menu badge after adding
         invalidateOptionsMenu()
     }
+}
 
-    fun closeTab(position: Int) {
-        if (adapter.getTabCount() <= 1) {
-            // Don't close the last tab; instead, load a blank page
-            val tab = getCurrentTab()
-            tab?.loadUrl("about:blank")
-            return
-        }
-        adapter.removeTab(position)
-        // If the current position was removed, adjust viewPager
-        if (position >= adapter.getTabCount()) {
-            viewPager.setCurrentItem(adapter.getTabCount() - 1, false)
-        }
-        // Clean up title map
-        tabTitles.keys.removeIf { it !in adapter.fragments } // we don't expose fragments, we'll handle differently
-        invalidateOptionsMenu()
-    }
-
-    fun switchToTab(position: Int) {
-        if (position in 0 until adapter.getTabCount()) {
-            viewPager.setCurrentItem(position, true)
+// Save history in onPageFinished
+webView.webViewClient = object : WebViewClient() {
+    override fun onPageFinished(view: WebView?, url: String?) {
+        super.onPageFinished(view, url)
+        urlInput.setText(url)
+        supportActionBar?.title = view?.title
+        swipeRefresh.isRefreshing = false
+        // Save history
+        url?.let { nonNullUrl ->
+            val title = view?.title ?: nonNullUrl
+            lifecycleScope.launch {
+                AppDatabase.getInstance(this@DefaultActivity).historyDao()
+                    .insert(History(url = nonNullUrl, title = title))
+            }
         }
     }
+}
 
-    fun getCurrentTab(): TabFragment? {
-        val pos = viewPager.currentItem
-        return if (pos < adapter.getTabCount()) adapter.getTab(pos) else null
-    }
-
-    fun getTabs(): List<TabFragment> {
-        // We need to get all fragments from adapter; but we can store list in adapter
-        return (0 until adapter.getTabCount()).map { adapter.getTab(it) }
-    }
-
-    fun updateTabTitle(tab: TabFragment, title: String) {
-        tabTitles[tab] = title
-        // If this is the current tab, update action bar
-        if (getCurrentTab() == tab) {
-            supportActionBar?.title = title
+// Handle activity result
+override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+    super.onActivityResult(requestCode, resultCode, data)
+    if (resultCode == RESULT_OK) {
+        val url = data?.getStringExtra("url")
+        if (!url.isNullOrEmpty()) {
+            getCurrentTab()?.loadUrl(url)
         }
-        // Update menu badge
-        invalidateOptionsMenu()
     }
+}
 
-    fun getTabTitle(tab: TabFragment): String {
-        return tabTitles[tab] ?: "Tab"
-    }
-
-    private fun showTabSwitcher() {
-        val bottomSheet = TabSwitcherBottomSheet()
-        bottomSheet.show(supportFragmentManager, "TabSwitcher")
-    }
-
-    // Helper to get number of tabs for badge
-    fun getTabCount() = adapter.getTabCount()
+// Add constants
+companion object {
+    private const val REQUEST_BOOKMARKS = 1001
+    private const val REQUEST_HISTORY = 1002
 }
