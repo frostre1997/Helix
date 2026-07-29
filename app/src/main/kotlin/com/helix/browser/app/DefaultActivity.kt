@@ -19,7 +19,7 @@ class DefaultActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        setContentView(R.layout.default_main)
 
         webView = findViewById(R.id.webView)
         progressBar = findViewById(R.id.progressBar)
