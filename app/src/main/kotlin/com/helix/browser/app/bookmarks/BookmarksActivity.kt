@@ -21,9 +21,13 @@ class BookmarksActivity : AppCompatActivity() {
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            layoutParams = ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT)
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
             setPadding(16, 16, 16, 16)
         }
+
         val title = TextView(this).apply {
             text = "Bookmarks"
             textSize = 20f
@@ -32,7 +36,11 @@ class BookmarksActivity : AppCompatActivity() {
         root.addView(title)
 
         recyclerView = RecyclerView(this).apply {
-            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, 0, 1f)
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                0,
+                1f
+            )
         }
         root.addView(recyclerView)
 
@@ -51,19 +59,24 @@ class BookmarksActivity : AppCompatActivity() {
             }
         }
         root.addView(clearBtn)
+
         setContentView(root)
 
         recyclerView.layoutManager = LinearLayoutManager(this)
-        adapter = BookmarkAdapter(emptyList()) { bookmark ->
-            intent.putExtra("url", bookmark.url)
-            setResult(RESULT_OK, intent)
-            finish()
-        } onDelete = { bookmark ->
-            lifecycleScope.launch {
-                AppDatabase.getInstance(this@BookmarksActivity).bookmarkDao().delete(bookmark)
-                loadBookmarks()
+        adapter = BookmarkAdapter(
+            emptyList(),
+            onItemClick = { bookmark ->
+                intent.putExtra("url", bookmark.url)
+                setResult(RESULT_OK, intent)
+                finish()
+            },
+            onDelete = { bookmark ->
+                lifecycleScope.launch {
+                    AppDatabase.getInstance(this@BookmarksActivity).bookmarkDao().delete(bookmark)
+                    loadBookmarks()
+                }
             }
-        }
+        )
         recyclerView.adapter = adapter
 
         loadBookmarks()
@@ -84,7 +97,10 @@ class BookmarksActivity : AppCompatActivity() {
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
             val tv = TextView(parent.context).apply {
-                layoutParams = ViewGroup.LayoutParams(MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+                layoutParams = ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                )
                 setPadding(16, 16, 16, 16)
                 textSize = 16f
             }
@@ -95,11 +111,18 @@ class BookmarksActivity : AppCompatActivity() {
             val item = items[position]
             holder.textView.text = "${item.title}\n${item.url}"
             holder.textView.setOnClickListener { onItemClick(item) }
-            holder.textView.setOnLongClickListener { onDelete(item); true }
+            holder.textView.setOnLongClickListener {
+                onDelete(item)
+                true
+            }
         }
 
         override fun getItemCount() = items.size
-        fun updateData(newItems: List<Bookmark>) { items = newItems; notifyDataSetChanged() }
+
+        fun updateData(newItems: List<Bookmark>) {
+            items = newItems
+            notifyDataSetChanged()
+        }
 
         inner class ViewHolder(val textView: TextView) : RecyclerView.ViewHolder(textView)
     }
