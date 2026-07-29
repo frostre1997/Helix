@@ -13,7 +13,7 @@ android {
         minSdk = 21
         targetSdk = 34
         versionCode = 1
-        versionName = "100.0.0.00"
+        versionName = "100.0.0.0"
     }
 
     buildTypes {
@@ -39,27 +39,12 @@ android {
         viewBinding = true
     }
 
-    // ---------- ABI Splits ----------
     splits {
         abi {
             isEnable = true
             reset()
             include("armeabi-v7a", "arm64-v8a")
             isUniversalApk = true
-        }
-    }
-
-    // Rename the output APKs for clarity
-    applicationVariants.all {
-        outputs.forEach { output ->
-            val abi = output.filters
-                .filter { it.filterType == com.android.build.api.variant.FilterConfiguration.FilterType.ABI }
-                .joinToString("-") { it.identifier }
-            output.outputFileName = if (abi.isNotEmpty()) {
-                "Helix-${this.name}-$abi.apk"
-            } else {
-                "Helix-${this.name}-universal.apk"
-            }
         }
     }
 }
