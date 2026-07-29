@@ -1,6 +1,5 @@
 package com.helix.browser.app
 
-import android.view.ViewGroup
 import android.os.Bundle
 import android.view.ViewGroup
 import android.widget.*
@@ -22,9 +21,13 @@ class HistoryActivity : AppCompatActivity() {
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            layoutParams = ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT)
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
             setPadding(16, 16, 16, 16)
         }
+
         val title = TextView(this).apply {
             text = "History"
             textSize = 20f
@@ -33,13 +36,20 @@ class HistoryActivity : AppCompatActivity() {
         root.addView(title)
 
         recyclerView = RecyclerView(this).apply {
-            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, 0, 1f)
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                0,
+                1f
+            )
         }
         root.addView(recyclerView)
 
         val clearBtn = Button(this).apply {
             text = "Clear All"
-            layoutParams = LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT)
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
             setOnClickListener {
                 lifecycleScope.launch {
                     AppDatabase.getInstance(this@HistoryActivity).historyDao().clearAll()
@@ -49,6 +59,7 @@ class HistoryActivity : AppCompatActivity() {
             }
         }
         root.addView(clearBtn)
+
         setContentView(root)
 
         recyclerView.layoutManager = LinearLayoutManager(this)
@@ -75,7 +86,10 @@ class HistoryActivity : AppCompatActivity() {
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
             val tv = TextView(parent.context).apply {
-                layoutParams = ViewGroup.LayoutParams(MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+                layoutParams = ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                )
                 setPadding(16, 16, 16, 16)
                 textSize = 16f
             }
@@ -89,7 +103,11 @@ class HistoryActivity : AppCompatActivity() {
         }
 
         override fun getItemCount() = items.size
-        fun updateData(newItems: List<History>) { items = newItems; notifyDataSetChanged() }
+
+        fun updateData(newItems: List<History>) {
+            items = newItems
+            notifyDataSetChanged()
+        }
 
         inner class ViewHolder(val textView: TextView) : RecyclerView.ViewHolder(textView)
     }
