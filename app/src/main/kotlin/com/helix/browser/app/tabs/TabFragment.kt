@@ -50,10 +50,12 @@ class TabFragment : Fragment() {
         webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
+                
                 // Save history
                 url?.let {
                     (activity as? DefaultActivity)?.saveHistory(it, view?.title ?: it)
                 }
+                
                 // Update tab title
                 (activity as? DefaultActivity)?.updateTabTitle(
                     this@TabFragment,
@@ -61,6 +63,11 @@ class TabFragment : Fragment() {
                 )
             }
 
+            val pluginManager = (activity as? DefaultActivity)?.pluginManager
+            pluginManager?.getPluginsForUrl(url ?: "")?.forEach { plugin ->
+                pluginManager.injectPlugin(view, plugin)
+            }
+        }
             // Handle external links (tel:, mailto:, etc.)
             override fun shouldOverrideUrlLoading(
                 view: WebView?,
