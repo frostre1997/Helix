@@ -1,7 +1,8 @@
 package com.helix.browser.app
 
 import android.os.Bundle
-import android.widget.Toast
+import android.view.ViewGroup
+import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -13,6 +14,17 @@ import org.json.JSONArray
 import java.io.File
 import java.util.zip.ZipFile
 
+data class StorePlugin(
+    val id: String,
+    val name: String,
+    val version: String,
+    val description: String,
+    val author: String,
+    val icon: String,
+    val downloadUrl: String,
+    val tags: List<String>
+)
+
 class PluginStoreActivity : AppCompatActivity() {
 
     private lateinit var recyclerView: RecyclerView
@@ -22,14 +34,34 @@ class PluginStoreActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_plugin_store)
 
-        recyclerView = findViewById(R.id.pluginStoreRecyclerView)
-        recyclerView.layoutManager = LinearLayoutManager(this)
-
-        adapter = PluginStoreAdapter(emptyList()) { plugin ->
-            installPlugin(plugin)
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+            setPadding(16, 16, 16, 16)
         }
+        val title = TextView(this).apply {
+            text = "Plugin Store"
+            textSize = 24f
+            setTypeface(typeface, android.graphics.Typeface.BOLD)
+        }
+        root.addView(title)
+
+        recyclerView = RecyclerView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+            setPadding(0, 16, 0, 0)
+        }
+        root.addView(recyclerView)
+        setContentView(root)
+
+        recyclerView.layoutManager = LinearLayoutManager(this)
+        adapter = PluginStoreAdapter(emptyList()) { plugin -> installPlugin(plugin) }
         recyclerView.adapter = adapter
 
         fetchPlugins()
@@ -38,16 +70,15 @@ class PluginStoreActivity : AppCompatActivity() {
     private fun fetchPlugins() {
         lifecycleScope.launch {
             try {
-                val request = Request.Builder().url(PLUGIN_API_URL).build()
-                val response = client.newCall(request).execute()
+                val response = client.newCall(Request.Builder().url(PLUGIN_API_URL).build()).execute()
                 val jsonString = response.body?.string()
                 if (jsonString != null) {
                     val jsonArray = JSONArray(jsonString)
-                    val plugins = mutableListOf<Plugin>()
+                    val plugins = mutableListOf<StorePlugin>()
                     for (i in 0 until jsonArray.length()) {
                         val obj = jsonArray.getJSONObject(i)
                         plugins.add(
-                            Plugin(
+                            StorePlugin(
                                 id = obj.getString("id"),
                                 name = obj.getString("name"),
                                 version = obj.getString("version"),
@@ -60,82 +91,67 @@ class PluginStoreActivity : AppCompatActivity() {
                         )
                     }
                     adapter.updatePlugins(plugins)
+                    adapter.markInstalled(PluginManager(this@PluginStoreActivity).getInstalledPlugins().map { it.id }.toSet())
                 }
-            } catch (e: Exception) {
-                Toast.makeText(this@PluginStoreActivity, "Failed to load plugins: ${e.message}", Toast.LENGTH_SHORT).show()
+            } catch (_: Exception) {
+                Toast.makeText(this@PluginStoreActivity, "Failed to load plugins", Toast.LENGTH_SHORT).show()
             }
         }
     }
 
-    private fun installPlugin(plugin: Plugin) {
+    private fun installPlugin(plugin: StorePlugin) {
         lifecycleScope.launch {
             try {
-                // Download ZIP
-                val request = Request.Builder().url("https://helixplugins.onrender.com${plugin.downloadUrl}").build()
-                val response = client.newCall(request).execute()
+                val baseUrl = "https://helixplugins.onrender.com"
+                val downloadUrl = baseUrl + plugin.downloadUrl
+                val response = client.newCall(Request.Builder().url(downloadUrl).build()).execute()
                 val zipFile = File(filesDir, "${plugin.id}.zip")
-                response.body?.let { body ->
-                    zipFile.writeBytes(body.bytes())
-                }
+                response.body?.let { zipFile.writeBytes(it.bytes()) }
 
-                // Extract ZIP
                 val destDir = File(filesDir, "HelixPlugins/${plugin.id}")
                 destDir.mkdirs()
                 ZipFile(zipFile).use { zip ->
                     zip.entries().asSequence().forEach { entry ->
                         val target = File(destDir, entry.name)
                         target.parentFile?.mkdirs()
-                        zip.getInputStream(entry).use { input ->
-                            target.outputStream().use { output ->
-                                input.copyTo(output)
-                            }
-                        }
+                        zip.getInputStream(entry).use { input -> target.outputStream().use { output -> input.copyTo(output) } }
                     }
                 }
                 zipFile.delete()
-
                 Toast.makeText(this@PluginStoreActivity, "${plugin.name} installed!", Toast.LENGTH_SHORT).show()
-
-                // Mark as installed in adapter
-                adapter.markInstalled(plugin.id)
-
-            } catch (e: Exception) {
-                Toast.makeText(this@PluginStoreActivity, "Install failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                adapter.markInstalled(PluginManager(this@PluginStoreActivity).getInstalledPlugins().map { it.id }.toSet())
+            } catch (_: Exception) {
+                Toast.makeText(this@PluginStoreActivity, "Install failed", Toast.LENGTH_SHORT).show()
             }
         }
     }
 
-    data class Plugin(
-        val id: String,
-        val name: String,
-        val version: String,
-        val description: String,
-        val author: String,
-        val icon: String,
-        val downloadUrl: String,
-        val tags: List<String>
-    )
-
     inner class PluginStoreAdapter(
-        private var plugins: List<Plugin>,
-        private val onInstall: (Plugin) -> Unit
+        private var plugins: List<StorePlugin>,
+        private val onInstall: (StorePlugin) -> Unit
     ) : RecyclerView.Adapter<PluginStoreAdapter.ViewHolder>() {
 
         private val installedIds = mutableSetOf<String>()
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-            val view = LayoutInflater.from(parent.context)
-                .inflate(android.R.layout.simple_list_item_2, parent, false)
+            val view = TextView(parent.context).apply {
+                layoutParams = ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                )
+                setPadding(16, 16, 16, 16)
+                textSize = 16f
+            }
             return ViewHolder(view)
         }
 
         override fun onBindViewHolder(holder: ViewHolder, position: Int) {
             val plugin = plugins[position]
-            holder.text1.text = "${plugin.icon} ${plugin.name} v${plugin.version}"
-            holder.text2.text = plugin.description
-            holder.itemView.setOnClickListener {
+            holder.textView.text = "${plugin.icon} ${plugin.name} v${plugin.version}\n${plugin.description}"
+            holder.textView.setBackgroundColor(if (installedIds.contains(plugin.id)) 0x2200FF00 else 0x00000000)
+            holder.textView.setOnClickListener {
                 if (installedIds.contains(plugin.id)) {
-                    Toast.makeText(holder.itemView.context, "Already installed", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(holder.textView.context, "Already installed", Toast.LENGTH_SHORT).show()
                 } else {
                     onInstall(plugin)
                 }
@@ -144,19 +160,9 @@ class PluginStoreActivity : AppCompatActivity() {
 
         override fun getItemCount() = plugins.size
 
-        fun updatePlugins(newPlugins: List<Plugin>) {
-            plugins = newPlugins
-            notifyDataSetChanged()
-        }
+        fun updatePlugins(newPlugins: List<StorePlugin>) { plugins = newPlugins; notifyDataSetChanged() }
+        fun markInstalled(ids: Set<String>) { installedIds.clear(); installedIds.addAll(ids); notifyDataSetChanged() }
 
-        fun markInstalled(id: String) {
-            installedIds.add(id)
-            notifyDataSetChanged()
-        }
-
-        inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
-            val text1: TextView = itemView.findViewById(android.R.id.text1)
-            val text2: TextView = itemView.findViewById(android.R.id.text2)
-        }
+        inner class ViewHolder(val textView: TextView) : RecyclerView.ViewHolder(textView)
     }
 }
