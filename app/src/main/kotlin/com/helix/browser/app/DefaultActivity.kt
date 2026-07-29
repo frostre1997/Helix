@@ -43,7 +43,7 @@ class DefaultActivity : AppCompatActivity() {
         val toolbar = Toolbar(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                resources.getDimensionPixelSize(androidx.appcompat.R.attr.actionBarSize)
+                ViewGroup.LayoutParams.WRAP_CONTENT
             )
             setBackgroundColor(Color.parseColor("#6200EE"))
         }
