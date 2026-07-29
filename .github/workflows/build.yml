@@ -24,11 +24,11 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Build Debug APK
-        run: ./gradlew assembleDebug --no-daemon
+      - name: Build with APK
+        run: ./gradlew assembleDebug --no-daemon --info
 
-      - name: Build Debug AAB (optional)
-        run: ./gradlew bundleDebug --no-daemon
+      - name: Build Debug AAB
+        run: ./gradlew bundleDebug --no-daemon --info
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
@@ -42,5 +42,5 @@ jobs:
           name: app-debug-bundle
           path: app/build/outputs/bundle/debug/*.aab
 
-      - name: Run tests (if you have any)
-        run: ./gradlew test --no-daemon
+      - name: Run tests
+        run: ./gradlew test --no-daemon --info
