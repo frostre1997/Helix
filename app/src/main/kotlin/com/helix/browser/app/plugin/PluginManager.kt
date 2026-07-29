@@ -33,19 +33,23 @@ class PluginManager(private val context: Context) {
                     try {
                         val json = JSONObject(manifestFile.readText())
                         val id = pluginFolder.name
+                        val matchesArray = json.getJSONArray("matches")
+                        val matches = (0 until matchesArray.length()).map { matchesArray.getString(it) }
                         val plugin = InstalledPlugin(
                             id = id,
                             name = json.getString("name"),
                             version = json.getString("version"),
                             description = json.optString("description", ""),
-                            matches = (0 until json.getJSONArray("matches"),length()).map { json.getJSONArray("matches").getString(it)
+                            matches = matches,
                             css = json.optString("css", null)?.let { File(pluginFolder, it).takeIf { it.exists() }?.readText() },
                             js = json.optString("js", null)?.let { File(pluginFolder, it).takeIf { it.exists() }?.readText() },
                             enabled = json.optBoolean("enabled", true),
                             folder = pluginFolder
                         )
                         plugins.add(plugin)
-                    } catch (_: Exception) {}
+                    } catch (_: Exception) {
+                        // Ignore malformed plugins
+                    }
                 }
             }
         }
@@ -72,7 +76,9 @@ class PluginManager(private val context: Context) {
                 json.put("enabled", enabled)
                 manifestFile.writeText(json.toString())
                 loadPlugins()
-            } catch (_: Exception) {}
+            } catch (_: Exception) {
+                // Ignore
+            }
         }
     }
 }
