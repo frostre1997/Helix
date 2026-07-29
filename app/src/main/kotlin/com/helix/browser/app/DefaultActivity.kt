@@ -28,7 +28,7 @@ class DefaultActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Root layout
+        // ----- Root layout -----
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = ViewGroup.LayoutParams(
@@ -38,7 +38,7 @@ class DefaultActivity : AppCompatActivity() {
             setBackgroundColor(Color.WHITE)
         }
 
-        // Toolbar
+        // ----- Toolbar with URL input -----
         val toolbar = Toolbar(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -63,7 +63,7 @@ class DefaultActivity : AppCompatActivity() {
         toolbar.addView(urlInput)
         root.addView(toolbar)
 
-        // SwipeRefreshLayout
+        // ----- SwipeRefreshLayout + ViewPager -----
         swipeRefresh = SwipeRefreshLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -73,7 +73,6 @@ class DefaultActivity : AppCompatActivity() {
             setColorSchemeResources(android.R.color.holo_blue_bright)
         }
 
-        // ViewPager2 for tabs
         viewPager = ViewPager2(this).apply {
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -85,18 +84,18 @@ class DefaultActivity : AppCompatActivity() {
 
         setContentView(root)
 
-        // Init adapter
+        // ----- Init adapter and first tab -----
         adapter = TabAdapter(this)
         viewPager.adapter = adapter
         addNewTab()
 
-        // Swipe to refresh
+        // ----- Swipe refresh -----
         swipeRefresh.setOnRefreshListener {
             getCurrentTab()?.reload()
             swipeRefresh.isRefreshing = false
         }
 
-        // URL enter
+        // ----- URL enter key -----
         urlInput.setOnEditorActionListener { _, actionId, _ ->
             if (actionId == EditorInfo.IME_ACTION_GO) {
                 loadUrlInCurrentTab(urlInput.text.toString())
@@ -104,9 +103,11 @@ class DefaultActivity : AppCompatActivity() {
             } else false
         }
 
+        // ----- Plugin manager -----
         pluginManager = PluginManager(this)
     }
 
+    // ---------- Menu ----------
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
         menu?.add(0, 1, 0, "Refresh")?.setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
         menu?.add(0, 2, 1, "Bookmarks")
@@ -129,6 +130,7 @@ class DefaultActivity : AppCompatActivity() {
         return true
     }
 
+    // ---------- Back button ----------
     override fun onBackPressed() {
         val tab = getCurrentTab()
         if (tab != null && tab.canGoBack()) {
@@ -138,7 +140,7 @@ class DefaultActivity : AppCompatActivity() {
         }
     }
 
-    // ---------- Tab Management ----------
+    // ---------- Tab management ----------
     fun addNewTab(url: String = "https://www.google.com") {
         val fragment = TabFragment().apply { this.url = url }
         adapter.addTab(fragment)
@@ -190,6 +192,13 @@ class DefaultActivity : AppCompatActivity() {
         lifecycleScope.launch {
             AppDatabase.getInstance(this@DefaultActivity).historyDao()
                 .insert(History(url = url, title = title))
+        }
+    }
+
+    // ---------- Plugin injection ----------
+    fun injectPlugins(webView: WebView, url: String) {
+        pluginManager.getPluginsForUrl(url).forEach { plugin ->
+            pluginManager.injectPlugin(webView, plugin)
         }
     }
 
