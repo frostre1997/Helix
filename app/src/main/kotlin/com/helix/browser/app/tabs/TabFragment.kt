@@ -44,6 +44,10 @@ class TabFragment : Fragment() {
 
         webView.webChromeClient = object : WebChromeClient() {
             override fun onReceivedTitle(view: WebView?, title: String?) {
+                super.onPageFinished(wiev, url)
+                url?.let {
+                    (activity as? DefaultActivity)?saveHistory(it, view?.title ?: it)
+                }   
                 (activity as? DefaultActivity)?.updateTabTitle(this@TabFragment, title ?: "")
             }
         }
