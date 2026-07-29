@@ -8,46 +8,52 @@ import android.widget.TextView
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
-import com.google.android.material.floatingactionbutton.FloatingActionButton
 
 class TabSwitcherBottomSheet : BottomSheetDialogFragment() {
 
     private lateinit var recyclerView: RecyclerView
     private lateinit var adapter: TabSwitcherAdapter
 
-    override fun onCreateView(
-        inflater: LayoutInflater,
-        container: ViewGroup?,
-        savedInstanceState: Bundle?
-    ): View? {
-        return inflater.inflate(R.layout.bottom_sheet_tab_switcher, container, false)
+    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
+        val root = LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(16, 16, 16, 16)
+        }
+        val title = TextView(requireContext()).apply {
+            text = "Open Tabs"
+            textSize = 20f
+            setTypeface(typeface, android.graphics.Typeface.BOLD)
+        }
+        root.addView(title)
+
+        recyclerView = RecyclerView(requireContext()).apply {
+            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
+        }
+        root.addView(recyclerView)
+
+        val addBtn = Button(requireContext()).apply {
+            text = "+ New Tab"
+            setOnClickListener {
+                (activity as? DefaultActivity)?.addNewTab()
+                dismiss()
+            }
+        }
+        root.addView(addBtn)
+        return root
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-
-        recyclerView = view.findViewById(R.id.tabRecyclerView)
-        recyclerView.layoutManager = LinearLayoutManager(context)
-
+        recyclerView.layoutManager = LinearLayoutManager(requireContext())
         val tabs = (activity as? DefaultActivity)?.getTabs() ?: emptyList()
         adapter = TabSwitcherAdapter(tabs) { position ->
-            // Switch to tab
             (activity as? DefaultActivity)?.switchToTab(position)
             dismiss()
         } onClose = { position ->
-            // Close tab
             (activity as? DefaultActivity)?.closeTab(position)
-            // Refresh list
-            updateTabs()
+            (activity as? DefaultActivity)?.let { adapter.updateTabs(it.getTabs()) }
         }
         recyclerView.adapter = adapter
-
-        // New tab button
-        view.findViewById<FloatingActionButton>(R.id.newTabButton).setOnClickListener {
-            (activity as? DefaultActivity)?.addNewTab()
-            updateTabs()
-            dismiss()
-        }
     }
 
     fun updateTabs() {
@@ -62,34 +68,25 @@ class TabSwitcherBottomSheet : BottomSheetDialogFragment() {
     ) : RecyclerView.Adapter<TabSwitcherAdapter.ViewHolder>() {
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-            val view = LayoutInflater.from(parent.context)
-                .inflate(android.R.layout.simple_list_item_2, parent, false)
-            return ViewHolder(view)
+            val tv = TextView(parent.context).apply {
+                layoutParams = ViewGroup.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
+                setPadding(16, 16, 16, 16)
+                textSize = 16f
+            }
+            return ViewHolder(tv)
         }
 
         override fun onBindViewHolder(holder: ViewHolder, position: Int) {
             val tab = tabs[position]
-            val title = (tab.activity as? DefaultActivity)?.getTabTitle(tab) ?: "Tab ${position + 1}"
-            holder.text1.text = title
-            holder.text2.text = tab.url
-
-            holder.itemView.setOnClickListener { onItemClick(position) }
-            holder.itemView.setOnLongClickListener {
-                onClose(position)
-                true
-            }
+            val title = (tab.activity as? DefaultActivity)?.getTabTitle(tab) ?: "Tab ${position+1}"
+            holder.textView.text = title
+            holder.textView.setOnClickListener { onItemClick(position) }
+            holder.textView.setOnLongClickListener { onClose(position); true }
         }
 
-        override fun getItemCount(): Int = tabs.size
+        override fun getItemCount() = tabs.size
+        fun updateTabs(newTabs: List<TabFragment>) { tabs = newTabs; notifyDataSetChanged() }
 
-        fun updateTabs(newTabs: List<TabFragment>) {
-            tabs = newTabs
-            notifyDataSetChanged()
-        }
-
-        inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
-            val text1: TextView = itemView.findViewById(android.R.id.text1)
-            val text2: TextView = itemView.findViewById(android.R.id.text2)
-        }
+        inner class ViewHolder(val textView: TextView) : RecyclerView.ViewHolder(textView)
     }
 }
