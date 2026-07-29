@@ -1,270 +1,140 @@
 package com.helix.browser.app
 
-import android.content.Intent
+import android.graphics.Color
 import android.os.Bundle
-import android.view.Menu
-import android.view.MenuItem
-import android.view.inputmethod.EditorInfo
+import android.view.*
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import android.widget.EditText
-import android.widget.Toast
+import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
-import androidx.lifecycle.lifecycleScope
-import androidx.preference.PreferenceManager
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
-import androidx.viewpager2.widget.ViewPager2
-import com.helix.browser.app.data.AppDatabase
-import com.helix.browser.app.data.Bookmark
-import com.helix.browser.app.data.History
-import com.google.android.material.bottomsheet.BottomSheetDialogFragment
-import kotlinx.coroutines.launch
+import android.view.inputmethod.EditorInfo
 
 class DefaultActivity : AppCompatActivity() {
 
-    // ----- Properties declared at class level -----
-    private lateinit var viewPager: ViewPager2
-    private lateinit var adapter: TabAdapter
+    private lateinit var webView: WebView
     private lateinit var urlInput: EditText
     private lateinit var swipeRefresh: SwipeRefreshLayout
-    private val tabTitles = mutableMapOf<TabFragment, String>()
-
-    // PluginManager – use 'var' with lateinit
-    lateinit var pluginManager: PluginManager
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)  // ← parentheses added
-        setContentView(R.layout.activity_default_tabs)
-
-        // Initialize views
-        viewPager = findViewById(R.id.viewPager)
-        // ... etc ...
-
-        // Initialize plugin manager
-        pluginManager = PluginManager(this)
-    }
-}
-    
-    companion object {
-        private const val REQUEST_BOOKMARKS = 1001
-        private const val REQUEST_HISTORY = 1002
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_default_tabs)
 
-        val toolbar: Toolbar = findViewById(R.id.toolbar)
-        setSupportActionBar(toolbar)
-
-        viewPager = findViewById(R.id.viewPager)
-        urlInput = findViewById(R.id.urlInput)  // keep if you have it
-        swipeRefresh = findViewById(R.id.swipeRefresh)
-
-        adapter = TabAdapter(this)
-        viewPager.adapter = adapter
-
-        // Add initial tab
-        addNewTab()
-
-        // Swipe to refresh – refreshes current tab
-        swipeRefresh.setOnRefreshListener {
-            getCurrentTab()?.reload()
-            swipeRefresh.isRefreshing = false
+        // Root vertical layout
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+            setBackgroundColor(Color.WHITE)
         }
 
-        // URL input – load in current tab
+        // Toolbar with URL input
+        val toolbar = Toolbar(this).apply {
+            id = R.id.toolbar
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                resources.getDimensionPixelSize(androidx.appcompat.R.attr.actionBarSize)
+            )
+            setBackgroundColor(resources.getColor(androidx.appcompat.R.color.material_grey_700, theme))
+        }
+        urlInput = EditText(this).apply {
+            hint = "Enter URL or search..."
+            inputType = android.text.InputType.TYPE_TEXT_VARIATION_URI
+            imeOptions = EditorInfo.IME_ACTION_GO
+            setSingleLine(true)
+            setTextColor(Color.WHITE)
+            setHintTextColor(Color.parseColor("#B3FFFFFF"))
+            setBackgroundColor(Color.TRANSPARENT)
+            layoutParams = Toolbar.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        }
+        toolbar.addView(urlInput)
+        root.addView(toolbar)
+
+        // SwipeRefreshLayout + WebView
+        swipeRefresh = SwipeRefreshLayout(this).apply {
+            id = R.id.swipeRefresh
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                0,
+                1f
+            )
+            setColorSchemeResources(android.R.color.holo_blue_bright)
+        }
+
+        webView = WebView(this).apply {
+            id = R.id.webView
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+            settings.javaScriptEnabled = true
+            settings.loadWithOverviewMode = true
+            settings.useWideViewPort = true
+
+            webViewClient = object : WebViewClient() {
+                override fun onPageFinished(view: WebView?, url: String?) {
+                    super.onPageFinished(view, url)
+                    urlInput.setText(url)
+                    supportActionBar?.title = view?.title
+                    swipeRefresh.isRefreshing = false
+                }
+            }
+            webChromeClient = object : WebChromeClient() {
+                override fun onReceivedTitle(view: WebView?, title: String?) {
+                    super.onReceivedTitle(view, title)
+                    supportActionBar?.title = title
+                }
+            }
+            loadUrl("https://www.google.com")
+        }
+        swipeRefresh.addView(webView)
+        root.addView(swipeRefresh)
+
+        setContentView(root)
+
+        // Events
+        swipeRefresh.setOnRefreshListener { webView.reload() }
         urlInput.setOnEditorActionListener { _, actionId, _ ->
             if (actionId == EditorInfo.IME_ACTION_GO) {
-                loadUrlInCurrentTab(urlInput.text.toString())
+                loadUrl(urlInput.text.toString())
                 true
             } else false
         }
     }
 
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
-        menuInflater.inflate(R.menu.main_menu, menu)
-
-        // Tab count badge
-        val tabItem = menu?.findItem(R.id.action_tabs)
-        tabItem?.title = "Tabs (${adapter.getTabCount()})"
-
-        // Bookmark icon state
-        val bookmarkItem = menu?.findItem(R.id.action_bookmark)
-        val currentUrl = getCurrentTab()?.webView?.url ?: ""
-        lifecycleScope.launch {
-            val bookmark = AppDatabase.getInstance(this@DefaultActivity)
-                .bookmarkDao().getBookmarkByUrl(currentUrl)
-            bookmarkItem?.setIcon(
-                if (bookmark != null) android.R.drawable.btn_star_big_on
-                else android.R.drawable.btn_star_big_off
-            )
-        }
+        menu?.add(0, 1, 0, "Refresh")?.setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
+        menu?.add(0, 2, 1, "Bookmarks")
+        menu?.add(0, 3, 2, "History")
+        menu?.add(0, 4, 3, "Plugin Store")
+        menu?.add(0, 5, 4, "Settings")
         return true
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         when (item.itemId) {
-            R.id.action_tabs -> {
-                showTabSwitcher()
-                return true
-            }
-            R.id.action_refresh -> {
-                getCurrentTab()?.reload()
-                return true
-            }
-            R.id.action_back -> {
-                val tab = getCurrentTab()
-                if (tab?.canGoBack() == true) tab.goBack()
-                return true
-            }
-            R.id.action_forward -> {
-                // Implement forward if needed – we can add a forward method in TabFragment
-                return true
-            }
-            R.id.action_bookmark -> {
-                toggleBookmark()
-                return true
-            }
-            R.id.action_bookmarks -> {
-                startActivityForResult(
-                    Intent(this, BookmarksActivity::class.java),
-                    REQUEST_BOOKMARKS
-                )
-                return true
-            }
-            R.id.action_history -> {
-                startActivityForResult(
-                    Intent(this, HistoryActivity::class.java),
-                    REQUEST_HISTORY
-                )
-                return true
-            }
-            R.id.action_settings -> {
-                startActivity(Intent(this, SettingsActivity::class.java))
-                return true
-            }
+            1 -> webView.reload()
+            2 -> startActivity(android.content.Intent(this, BookmarksActivity::class.java))
+            3 -> startActivity(android.content.Intent(this, HistoryActivity::class.java))
+            4 -> startActivity(android.content.Intent(this, PluginStoreActivity::class.java))
+            5 -> startActivity(android.content.Intent(this, SettingsActivity::class.java))
         }
-        return super.onOptionsItemSelected(item)
+        return true
     }
 
     override fun onBackPressed() {
-        val tab = getCurrentTab()
-        if (tab != null && tab.canGoBack()) {
-            tab.goBack()
-        } else {
-            super.onBackPressed()
-        }
+        if (webView.canGoBack()) webView.goBack() else super.onBackPressed()
     }
 
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (resultCode == RESULT_OK && data != null) {
-            val url = data.getStringExtra("url")
-            if (!url.isNullOrEmpty()) {
-                getCurrentTab()?.loadUrl(url)
-            }
-        }
-    }
-
-    // ---------- Tab Management ----------
-    fun addNewTab(url: String = "https://www.google.com") {
-        val fragment = TabFragment().apply { this.url = url }
-        adapter.addTab(fragment)
-        viewPager.setCurrentItem(adapter.getTabCount() - 1, true)
-        invalidateOptionsMenu()
-    }
-
-    fun closeTab(position: Int) {
-        if (adapter.getTabCount() <= 1) {
-            // Don't close the last tab; load blank
-            getCurrentTab()?.loadUrl("about:blank")
-            return
-        }
-        adapter.removeTab(position)
-        if (position >= adapter.getTabCount()) {
-            viewPager.setCurrentItem(adapter.getTabCount() - 1, false)
-        }
-        invalidateOptionsMenu()
-    }
-
-    fun switchToTab(position: Int) {
-        if (position in 0 until adapter.getTabCount()) {
-            viewPager.setCurrentItem(position, true)
-        }
-    }
-
-    fun getCurrentTab(): TabFragment? {
-        val pos = viewPager.currentItem
-        return if (pos < adapter.getTabCount()) adapter.getTab(pos) else null
-    }
-
-    fun getTabs(): List<TabFragment> {
-        return (0 until adapter.getTabCount()).map { adapter.getTab(it) }
-    }
-
-    fun getTabCount() = adapter.getTabCount()
-
-    fun updateTabTitle(tab: TabFragment, title: String) {
-        tabTitles[tab] = title
-        if (getCurrentTab() == tab) {
-            supportActionBar?.title = title
-            // Also update URL bar? We can update with current URL from webView
-            urlInput.setText(tab.webView.url ?: "")
-        }
-        invalidateOptionsMenu()
-    }
-
-    fun getTabTitle(tab: TabFragment): String {
-        return tabTitles[tab] ?: "Tab"
-    }
-
-    private fun showTabSwitcher() {
-        val bottomSheet = TabSwitcherBottomSheet()
-        bottomSheet.show(supportFragmentManager, "TabSwitcher")
-    }
-
-    private fun loadUrlInCurrentTab(input: String) {
+    private fun loadUrl(input: String) {
         if (input.isBlank()) return
-        val url = if (input.startsWith("http://") || input.startsWith("https://")) {
-            input
-        } else {
-            "https://$input"
-        }
-        getCurrentTab()?.loadUrl(url)
-    }
-
-    // ---------- Bookmark Toggle ----------
-    private fun toggleBookmark() {
-        val tab = getCurrentTab() ?: return
-        val url = tab.webView.url ?: return
-        val title = tab.webView.title ?: url
-        lifecycleScope.launch {
-            val db = AppDatabase.getInstance(this@DefaultActivity)
-            val existing = db.bookmarkDao().getBookmarkByUrl(url)
-            if (existing != null) {
-                db.bookmarkDao().delete(existing)
-                Toast.makeText(this@DefaultActivity, "Bookmark removed", Toast.LENGTH_SHORT).show()
-            } else {
-                db.bookmarkDao().insert(Bookmark(url = url, title = title))
-                Toast.makeText(this@DefaultActivity, "Bookmark added", Toast.LENGTH_SHORT).show()
-            }
-            invalidateOptionsMenu()
-        }
-    }
-
-    // ---------- Override to save history ----------
-    // In TabFragment's WebViewClient we already call updateTabTitle, but we need to save history.
-    // We'll modify TabFragment to add a callback when page finishes.
-    // For simplicity, we can override onPageFinished in TabFragment's WebViewClient.
-    // But we already have a method: in TabFragment we can add a listener.
-    // Let's add a function in DefaultActivity to save history from TabFragment.
-    fun saveHistory(url: String, title: String) {
-        lifecycleScope.launch {
-            AppDatabase.getInstance(this@DefaultActivity).historyDao()
-                .insert(History(url = url, title = title))
-        }
+        val url = if (input.startsWith("http://") || input.startsWith("https://")) input else "https://$input"
+        webView.loadUrl(url)
     }
 }
