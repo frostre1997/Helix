@@ -35,9 +35,32 @@ android {
         jvmTarget = "1.8"
     }
 
-    // Enable View Binding if you want to use it later
     buildFeatures {
         viewBinding = true
+    }
+
+    // ---------- ABI Splits ----------
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("armeabi-v7a", "arm64-v8a")
+            isUniversalApk = true
+        }
+    }
+
+    // Rename the output APKs for clarity
+    applicationVariants.all {
+        outputs.forEach { output ->
+            val abi = output.filters
+                .filter { it.filterType == com.android.build.api.variant.FilterConfiguration.FilterType.ABI }
+                .joinToString("-") { it.identifier }
+            output.outputFileName = if (abi.isNotEmpty()) {
+                "Helix-${this.name}-$abi.apk"
+            } else {
+                "Helix-${this.name}-universal.apk"
+            }
+        }
     }
 }
 
@@ -48,11 +71,9 @@ dependencies {
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
 
     implementation("androidx.preference:preference-ktx:1.2.1")
-
     implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
     
     implementation("androidx.room:room-runtime:2.6.0")
     implementation("androidx.room:room-ktx:2.6.0")
     kapt("androidx.room:room-compiler:2.6.0")
-}
 }
