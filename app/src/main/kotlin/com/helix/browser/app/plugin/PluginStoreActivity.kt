@@ -1,7 +1,5 @@
 package com.helix.browser.app
 
-import okhttp3.OkHttpClient
-import okhttp3.Request
 import android.os.Bundle
 import android.view.ViewGroup
 import android.widget.*
@@ -55,9 +53,9 @@ class PluginStoreActivity : AppCompatActivity() {
         recyclerView = RecyclerView(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
+                0,
+                1f
             )
-            setPadding(0, 16, 0, 0)
         }
         root.addView(recyclerView)
         setContentView(root)
@@ -79,6 +77,8 @@ class PluginStoreActivity : AppCompatActivity() {
                     val plugins = mutableListOf<StorePlugin>()
                     for (i in 0 until jsonArray.length()) {
                         val obj = jsonArray.getJSONObject(i)
+                        val tagsArray = obj.getJSONArray("tags")
+                        val tags = (0 until tagsArray.length()).map { tagsArray.getString(it) }
                         plugins.add(
                             StorePlugin(
                                 id = obj.getString("id"),
@@ -88,7 +88,7 @@ class PluginStoreActivity : AppCompatActivity() {
                                 author = obj.getString("author"),
                                 icon = obj.getString("icon"),
                                 downloadUrl = obj.getString("downloadUrl"),
-                                tags = obj.getJSONArray("tags").map { it.toString() }
+                                tags = tags
                             )
                         )
                     }
