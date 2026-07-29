@@ -1,99 +1,139 @@
 package com.helix.browser.app
 
 import android.os.Bundle
-import android.view.inputmethod.EditorInfo
-import android.webkit.WebChromeClient
-import android.webkit.WebView
-import android.webkit.WebViewClient
-import android.widget.Button
-import android.widget.EditText
-import android.widget.ImageButton
-import android.widget.ProgressBar
+import android.view.Menu
+import android.view.MenuItem
 import androidx.appcompat.app.AppCompatActivity
+import androidx.viewpager2.widget.ViewPager2
+import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 
 class DefaultActivity : AppCompatActivity() {
 
-    private lateinit var webView: WebView
-    private lateinit var progressBar: ProgressBar
-    private lateinit var urlInput: EditText
+    private lateinit var viewPager: ViewPager2
+    private lateinit var adapter: TabAdapter
+    private val tabTitles = mutableMapOf<TabFragment, String>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.default_main)
+        setContentView(R.layout.activity_default_tabs)  // new layout with ViewPager2
 
-        webView = findViewById(R.id.webView)
-        progressBar = findViewById(R.id.progressBar)
-        urlInput = findViewById(R.id.urlInput)
-        val goButton: Button = findViewById(R.id.goButton)
-        val backButton: ImageButton = findViewById(R.id.backButton)
-        val forwardButton: ImageButton = findViewById(R.id.forwardButton)
-        val refreshButton: ImageButton = findViewById(R.id.refreshButton)
+        viewPager = findViewById(R.id.viewPager)
+        adapter = TabAdapter(this)
+        viewPager.adapter = adapter
 
-        webView.settings.javaScriptEnabled = true
-        webView.settings.loadWithOverviewMode = true
-        webView.settings.useWideViewPort = true
+        // Add initial tab
+        addNewTab()
+    }
 
-        webView.webViewClient = object : WebViewClient() {
-            override fun onPageFinished(view: WebView?, url: String?) {
-                super.onPageFinished(view, url)
-                urlInput.setText(url)
-                supportActionBar?.title = view?.title
+    override fun onCreateOptionsMenu(menu: Menu?): Boolean {
+        menuInflater.inflate(R.menu.main_menu, menu)
+        // Update tab count badge
+        val tabItem = menu?.findItem(R.id.action_tabs)
+        val tabCount = adapter.getTabCount()
+        tabItem?.title = if (tabCount > 0) "Tabs ($tabCount)" else "Tabs"
+        return true
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        when (item.itemId) {
+            R.id.action_tabs -> {
+                showTabSwitcher()
+                return true
+            }
+            R.id.action_refresh -> {
+                getCurrentTab()?.reload()
+                return true
+            }
+            R.id.action_back -> {
+                val tab = getCurrentTab()
+                if (tab?.canGoBack() == true) {
+                    tab.goBack()
+                }
+                return true
+            }
+            R.id.action_forward -> {
+                // We skipped forward for simplicity, but you can add later
+                return true
+            }
+            R.id.action_settings -> {
+                startActivity(Intent(this, SettingsActivity::class.java))
+                return true
             }
         }
-
-        webView.webChromeClient = object : WebChromeClient() {
-            override fun onProgressChanged(view: WebView?, newProgress: Int) {
-                progressBar.progress = newProgress
-                progressBar.visibility = if (newProgress < 100) android.view.View.VISIBLE else android.view.View.GONE
-            }
-
-            override fun onReceivedTitle(view: WebView?, title: String?) {
-                super.onReceivedTitle(view, title)
-                supportActionBar?.title = title
-            }
-        }
-
-        webView.loadUrl("https://www.google.com")
-
-        goButton.setOnClickListener {
-            loadUrl(urlInput.text.toString())
-        }
-
-        urlInput.setOnEditorActionListener { _, actionId, _ ->
-            if (actionId == EditorInfo.IME_ACTION_GO) {
-                loadUrl(urlInput.text.toString())
-                true
-            } else false
-        }
-
-        backButton.setOnClickListener {
-            if (webView.canGoBack()) webView.goBack()
-        }
-
-        forwardButton.setOnClickListener {
-            if (webView.canGoForward()) webView.goForward()
-        }
-
-        refreshButton.setOnClickListener {
-            webView.reload()
-        }
+        return super.onOptionsItemSelected(item)
     }
 
     override fun onBackPressed() {
-        if (webView.canGoBack()) {
-            webView.goBack()
+        val tab = getCurrentTab()
+        if (tab != null && tab.canGoBack()) {
+            tab.goBack()
         } else {
             super.onBackPressed()
         }
     }
 
-    private fun loadUrl(input: String) {
-        if (input.isBlank()) return
-        val url = if (input.startsWith("http://") || input.startsWith("https://")) {
-            input
-        } else {
-            "https://$input"
-        }
-        webView.loadUrl(url)
+    // ---------- Tab Management ----------
+    fun addNewTab(url: String = "https://www.google.com") {
+        val fragment = TabFragment().apply { this.url = url }
+        adapter.addTab(fragment)
+        viewPager.setCurrentItem(adapter.getTabCount() - 1, true)
+        // Update the tab title (will be set via WebChromeClient)
+        // We'll also update the menu badge after adding
+        invalidateOptionsMenu()
     }
+
+    fun closeTab(position: Int) {
+        if (adapter.getTabCount() <= 1) {
+            // Don't close the last tab; instead, load a blank page
+            val tab = getCurrentTab()
+            tab?.loadUrl("about:blank")
+            return
+        }
+        adapter.removeTab(position)
+        // If the current position was removed, adjust viewPager
+        if (position >= adapter.getTabCount()) {
+            viewPager.setCurrentItem(adapter.getTabCount() - 1, false)
+        }
+        // Clean up title map
+        tabTitles.keys.removeIf { it !in adapter.fragments } // we don't expose fragments, we'll handle differently
+        invalidateOptionsMenu()
+    }
+
+    fun switchToTab(position: Int) {
+        if (position in 0 until adapter.getTabCount()) {
+            viewPager.setCurrentItem(position, true)
+        }
+    }
+
+    fun getCurrentTab(): TabFragment? {
+        val pos = viewPager.currentItem
+        return if (pos < adapter.getTabCount()) adapter.getTab(pos) else null
+    }
+
+    fun getTabs(): List<TabFragment> {
+        // We need to get all fragments from adapter; but we can store list in adapter
+        return (0 until adapter.getTabCount()).map { adapter.getTab(it) }
+    }
+
+    fun updateTabTitle(tab: TabFragment, title: String) {
+        tabTitles[tab] = title
+        // If this is the current tab, update action bar
+        if (getCurrentTab() == tab) {
+            supportActionBar?.title = title
+        }
+        // Update menu badge
+        invalidateOptionsMenu()
+    }
+
+    fun getTabTitle(tab: TabFragment): String {
+        return tabTitles[tab] ?: "Tab"
+    }
+
+    private fun showTabSwitcher() {
+        val bottomSheet = TabSwitcherBottomSheet()
+        bottomSheet.show(supportFragmentManager, "TabSwitcher")
+    }
+
+    // Helper to get number of tabs for badge
+    fun getTabCount() = adapter.getTabCount()
 }
