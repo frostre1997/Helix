@@ -1,5 +1,7 @@
 package com.helix.browser.app
 
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import android.os.Bundle
 import android.view.ViewGroup
 import android.widget.*
