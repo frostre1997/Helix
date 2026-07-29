@@ -27,7 +27,7 @@ jobs:
       - name: Build with APK
         run: ./gradlew assembleDebug --no-daemon --info
 
-      - name: Build Debug AAB
+      - name: Build with AAB
         run: ./gradlew bundleDebug --no-daemon --info
 
       - name: Upload APK
