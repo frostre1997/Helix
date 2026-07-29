@@ -1,5 +1,6 @@
 package com.helix.browser.app
 
+import androidx.lifecycle.lifecycleScope
 import android.graphics.Color
 import android.os.Bundle
 import android.view.*
