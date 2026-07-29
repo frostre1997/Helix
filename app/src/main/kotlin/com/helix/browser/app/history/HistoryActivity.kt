@@ -1,7 +1,8 @@
 package com.helix.browser.app
 
 import android.os.Bundle
-import android.widget.Toast
+import android.view.ViewGroup
+import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -17,25 +18,46 @@ class HistoryActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_history)
 
-        recyclerView = findViewById(R.id.historyRecyclerView)
-        recyclerView.layoutManager = LinearLayoutManager(this)
-
-        adapter = HistoryAdapter(emptyList()) { history ->
-            finishWithResult(history.url)
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT)
+            setPadding(16, 16, 16, 16)
         }
-        recyclerView.adapter = adapter
+        val title = TextView(this).apply {
+            text = "History"
+            textSize = 20f
+            setTypeface(typeface, android.graphics.Typeface.BOLD)
+        }
+        root.addView(title)
 
-        loadHistory()
+        recyclerView = RecyclerView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, 0, 1f)
+        }
+        root.addView(recyclerView)
 
-        findViewById<View>(R.id.clearHistoryButton).setOnClickListener {
-            lifecycleScope.launch {
-                AppDatabase.getInstance(this@HistoryActivity).historyDao().clearAll()
-                loadHistory()
-                Toast.makeText(this@HistoryActivity, "History cleared", Toast.LENGTH_SHORT).show()
+        val clearBtn = Button(this).apply {
+            text = "Clear All"
+            layoutParams = LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT)
+            setOnClickListener {
+                lifecycleScope.launch {
+                    AppDatabase.getInstance(this@HistoryActivity).historyDao().clearAll()
+                    loadHistory()
+                    Toast.makeText(this@HistoryActivity, "History cleared", Toast.LENGTH_SHORT).show()
+                }
             }
         }
+        root.addView(clearBtn)
+        setContentView(root)
+
+        recyclerView.layoutManager = LinearLayoutManager(this)
+        adapter = HistoryAdapter(emptyList()) { history ->
+            intent.putExtra("url", history.url)
+            setResult(RESULT_OK, intent)
+            finish()
+        }
+        recyclerView.adapter = adapter
+        loadHistory()
     }
 
     private fun loadHistory() {
@@ -45,40 +67,29 @@ class HistoryActivity : AppCompatActivity() {
         }
     }
 
-    private fun finishWithResult(url: String) {
-        intent.putExtra("url", url)
-        setResult(RESULT_OK, intent)
-        finish()
-    }
-
     inner class HistoryAdapter(
         private var items: List<History>,
         private val onItemClick: (History) -> Unit
     ) : RecyclerView.Adapter<HistoryAdapter.ViewHolder>() {
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-            val view = LayoutInflater.from(parent.context)
-                .inflate(android.R.layout.simple_list_item_2, parent, false)
-            return ViewHolder(view)
+            val tv = TextView(parent.context).apply {
+                layoutParams = ViewGroup.LayoutParams(MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+                setPadding(16, 16, 16, 16)
+                textSize = 16f
+            }
+            return ViewHolder(tv)
         }
 
         override fun onBindViewHolder(holder: ViewHolder, position: Int) {
             val item = items[position]
-            holder.text1.text = item.title
-            holder.text2.text = item.url
-            holder.itemView.setOnClickListener { onItemClick(item) }
+            holder.textView.text = "${item.title}\n${item.url}"
+            holder.textView.setOnClickListener { onItemClick(item) }
         }
 
         override fun getItemCount() = items.size
+        fun updateData(newItems: List<History>) { items = newItems; notifyDataSetChanged() }
 
-        fun updateData(newItems: List<History>) {
-            items = newItems
-            notifyDataSetChanged()
-        }
-
-        inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
-            val text1: TextView = itemView.findViewById(android.R.id.text1)
-            val text2: TextView = itemView.findViewById(android.R.id.text2)
-        }
+        inner class ViewHolder(val textView: TextView) : RecyclerView.ViewHolder(textView)
     }
 }
