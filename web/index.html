@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Helix Plugins</title>
+    <link rel="stylesheet" href="style.css" />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧬</text></svg>" />
+</head>
+<body>
+
+    <!-- Header -->
+    <header>
+        <div class="container">
+            <div class="logo">
+                <span class="icon">🧬</span>
+                <h1>Helix Plugins</h1>
+            </div>
+            <p class="tagline">Extend your browser with custom features</p>
+            <div class="search-bar">
+                <input type="text" id="searchInput" placeholder="Search plugins..." />
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container">
+        <div class="plugin-grid" id="pluginGrid">
+            <!-- Plugins will be loaded here by JavaScript -->
+            <div class="loading">Loading plugins...</div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <p>Made with ❤️ for Helix Browser &bull; <a href="#" onclick="alert('Submit your plugin via GitHub!')">Submit a Plugin</a></p>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
