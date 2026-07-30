@@ -38,29 +38,29 @@ class TabFragment : Fragment() {
         webView.settings.loadWithOverviewMode = true
         webView.settings.useWideViewPort = true
 
-        // ---- Desktop User Agent ----
-        webView.settings.userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-        
-        // ---- Hardware acceleration for smooth scrolling ----
+        // ---- Hardware acceleration ----
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
 
-        // ---- Prevent ViewPager2 from stealing touch events ----
+        // ---- Fix ViewPager2 touch interference ----
         webView.setOnTouchListener { _, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
-                    parent?.requestDisallowInterceptTouchEvent(true)
+                    webView.parent?.requestDisallowInterceptTouchEvent(true)
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    parent?.requestDisallowInterceptTouchEvent(false)
+                    webView.parent?.requestDisallowInterceptTouchEvent(false)
                 }
             }
             false
         }
 
-        // ---- Enable scrollbars and overscroll ----
+        // ---- Enable scrollbars ----
         webView.isVerticalScrollBarEnabled = true
         webView.isHorizontalScrollBarEnabled = true
         webView.overScrollMode = WebView.OVER_SCROLL_ALWAYS
+
+        // ---- Desktop User Agent ----
+        webView.settings.userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
         webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView?, url: String?) {
