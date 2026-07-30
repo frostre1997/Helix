@@ -28,7 +28,6 @@ class DefaultActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // ----- Root layout -----
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = ViewGroup.LayoutParams(
@@ -38,7 +37,7 @@ class DefaultActivity : AppCompatActivity() {
             setBackgroundColor(Color.WHITE)
         }
 
-        // ----- Custom Toolbar -----
+        // ----- Toolbar -----
         val toolbar = Toolbar(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -47,7 +46,6 @@ class DefaultActivity : AppCompatActivity() {
             setBackgroundColor(Color.BLACK)
         }
 
-        // ---- Toolbar content ----
         val toolbarContent = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             layoutParams = Toolbar.LayoutParams(
@@ -58,7 +56,7 @@ class DefaultActivity : AppCompatActivity() {
             setPadding(8, 0, 8, 0)
         }
 
-        // ---- Back button ----
+        // ---- Back ----
         val backBtn = ImageButton(this).apply {
             setImageResource(R.drawable.ic_back)
             setBackgroundColor(Color.TRANSPARENT)
@@ -66,13 +64,11 @@ class DefaultActivity : AppCompatActivity() {
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
-            setOnClickListener {
-                getCurrentTab()?.goBack()
-            }
+            setOnClickListener { getCurrentTab()?.goBack() }
         }
         toolbarContent.addView(backBtn)
 
-        // ---- Forward button ----
+        // ---- Forward ----
         val forwardBtn = ImageButton(this).apply {
             setImageResource(R.drawable.ic_forward)
             setBackgroundColor(Color.TRANSPARENT)
@@ -80,13 +76,11 @@ class DefaultActivity : AppCompatActivity() {
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
-            setOnClickListener {
-                getCurrentTab()?.goForward()
-            }
+            setOnClickListener { getCurrentTab()?.goForward() }
         }
         toolbarContent.addView(forwardBtn)
 
-        // ---- Domain TextView (centered) ----
+        // ---- Domain ----
         domainText = TextView(this).apply {
             text = "Helix"
             setTextColor(Color.WHITE)
@@ -95,15 +89,13 @@ class DefaultActivity : AppCompatActivity() {
             layoutParams = LinearLayout.LayoutParams(
                 0,
                 ViewGroup.LayoutParams.WRAP_CONTENT,
-                1f  // takes remaining space – centers text
+                1f
             )
-            setOnClickListener {
-                showUrlEditor()
-            }
+            setOnClickListener { showUrlEditor() }
         }
         toolbarContent.addView(domainText)
 
-        // ---- Refresh button ----
+        // ---- Refresh ----
         val refreshBtn = ImageButton(this).apply {
             setImageResource(R.drawable.ic_refresh)
             setBackgroundColor(Color.TRANSPARENT)
@@ -111,13 +103,11 @@ class DefaultActivity : AppCompatActivity() {
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
-            setOnClickListener {
-                getCurrentTab()?.reload()
-            }
+            setOnClickListener { getCurrentTab()?.reload() }
         }
         toolbarContent.addView(refreshBtn)
 
-        // ---- Home button ----
+        // ---- Home ----
         val homeBtn = ImageButton(this).apply {
             setImageResource(R.drawable.ic_home)
             setBackgroundColor(Color.TRANSPARENT)
@@ -131,7 +121,7 @@ class DefaultActivity : AppCompatActivity() {
         }
         toolbarContent.addView(homeBtn)
 
-        // ---- Tabs button ----
+        // ---- Tabs ----
         val tabsBtn = ImageButton(this).apply {
             setImageResource(R.drawable.ic_tabs)
             setBackgroundColor(Color.TRANSPARENT)
@@ -139,16 +129,14 @@ class DefaultActivity : AppCompatActivity() {
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
-            setOnClickListener {
-                showTabSwitcher()
-            }
+            setOnClickListener { showTabSwitcher() }
         }
         toolbarContent.addView(tabsBtn)
 
         toolbar.addView(toolbarContent)
         root.addView(toolbar)
 
-        // ----- SwipeRefreshLayout + ViewPager -----
+        // ----- SwipeRefresh + ViewPager -----
         swipeRefresh = SwipeRefreshLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -157,11 +145,8 @@ class DefaultActivity : AppCompatActivity() {
             )
             setColorSchemeResources(android.R.color.holo_blue_bright)
         }
-
         swipeRefresh.setOnChildScrollUpCallback { _, _ ->
-            val tab = getCurrentTab()
-            val webView = tab?.webView
-            webView?.scrollY == 0
+            getCurrentTab()?.webView?.scrollY == 0
         }
 
         viewPager = ViewPager2(this).apply {
@@ -175,7 +160,7 @@ class DefaultActivity : AppCompatActivity() {
 
         setContentView(root)
 
-        // ----- Init adapter and first tab -----
+        // ----- Init -----
         adapter = TabAdapter(this)
         viewPager.adapter = adapter
         addNewTab("https://www.google.com")
@@ -188,7 +173,7 @@ class DefaultActivity : AppCompatActivity() {
         pluginManager = PluginManager(this)
     }
 
-    // ---------- Show URL editor dialog ----------
+    // ---------- Dialog ----------
     private fun showUrlEditor() {
         val currentTab = getCurrentTab()
         val currentUrl = currentTab?.webView?.url ?: ""
@@ -201,15 +186,13 @@ class DefaultActivity : AppCompatActivity() {
             .setView(input)
             .setPositiveButton("Go") { _, _ ->
                 val url = input.text.toString()
-                if (url.isNotEmpty()) {
-                    loadUrlInCurrentTab(url)
-                }
+                if (url.isNotEmpty()) loadUrlInCurrentTab(url)
             }
             .setNegativeButton("Cancel", null)
             .show()
     }
 
-    // ---------- Update domain text when page changes ----------
+    // ---------- Update domain ----------
     fun updateDomain(url: String?) {
         if (url.isNullOrEmpty()) {
             domainText.text = "Helix"
@@ -245,11 +228,9 @@ class DefaultActivity : AppCompatActivity() {
         return true
     }
 
-    // ---------- Back button ----------
     override fun onBackPressed() {
-        val tab = getCurrentTab()
-        if (tab != null && tab.canGoBack()) {
-            tab.goBack()
+        if (getCurrentTab()?.canGoBack() == true) {
+            getCurrentTab()?.goBack()
         } else {
             super.onBackPressed()
         }
@@ -298,9 +279,7 @@ class DefaultActivity : AppCompatActivity() {
         tabTitles[tab] = title
         if (getCurrentTab() == tab) {
             supportActionBar?.title = title
-            // Update the domain text with the actual URL
-            val url = tab.webView.url
-            updateDomain(url)
+            updateDomain(tab.webView.url)
         }
         invalidateOptionsMenu()
     }
@@ -312,7 +291,6 @@ class DefaultActivity : AppCompatActivity() {
         }
     }
 
-    // ---------- Plugin injection ----------
     fun injectPlugins(webView: WebView, url: String) {
         pluginManager.getPluginsForUrl(url).forEach { plugin ->
             pluginManager.injectPlugin(webView, plugin)
