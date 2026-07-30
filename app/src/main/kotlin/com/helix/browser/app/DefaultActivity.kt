@@ -1,17 +1,15 @@
 package com.helix.browser.app
 
-import androidx.lifecycle.lifecycleScope
 import android.graphics.Color
 import android.os.Bundle
 import android.view.*
-import android.webkit.WebChromeClient
 import android.webkit.WebView
-import android.webkit.WebViewClient
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import android.view.inputmethod.EditorInfo
+import androidx.lifecycle.lifecycleScope
 import androidx.viewpager2.widget.ViewPager2
 import com.helix.browser.app.data.AppDatabase
 import com.helix.browser.app.data.History
@@ -43,7 +41,7 @@ class DefaultActivity : AppCompatActivity() {
         val toolbar = Toolbar(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
+                ViewGroup.LayoutParams.WRAP_CONTENT   // fixed: no resource lookup
             )
             setBackgroundColor(Color.parseColor("#6200EE"))
         }
@@ -73,11 +71,14 @@ class DefaultActivity : AppCompatActivity() {
             )
             setColorSchemeResources(android.R.color.holo_blue_bright)
         }
-        swipeRefresh.setOnChildScrollUpCallback {_, _ ->
+
+        // ---- Fix: refresh only when scrolled to top ----
+        swipeRefresh.setOnChildScrollUpCallback { _, _ ->
             val tab = getCurrentTab()
-            val webView = tab? .webView
+            val webView = tab?.webView
             webView?.canScrollVertically(-1) == true
         }
+
         viewPager = ViewPager2(this).apply {
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -110,6 +111,9 @@ class DefaultActivity : AppCompatActivity() {
 
         // ----- Plugin manager -----
         pluginManager = PluginManager(this)
+
+        // ----- Apply desktop user agent to all tabs -----
+        applyDesktopModeToAllTabs()
     }
 
     // ---------- Menu ----------
@@ -150,6 +154,8 @@ class DefaultActivity : AppCompatActivity() {
         val fragment = TabFragment().apply { this.url = url }
         adapter.addTab(fragment)
         viewPager.setCurrentItem(adapter.getTabCount() - 1, true)
+        // Apply desktop UA to the new tab
+        fragment.webView.settings.userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         invalidateOptionsMenu()
     }
 
@@ -200,6 +206,15 @@ class DefaultActivity : AppCompatActivity() {
         }
     }
 
+    // ---------- Apply desktop user agent to all tabs ----------
+    fun applyDesktopModeToAllTabs() {
+        val ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        for (i in 0 until adapter.getTabCount()) {
+            adapter.getTab(i).webView.settings.userAgentString = ua
+            adapter.getTab(i).webView.reload()
+        }
+    }
+
     // ---------- Plugin injection ----------
     fun injectPlugins(webView: WebView, url: String) {
         pluginManager.getPluginsForUrl(url).forEach { plugin ->
@@ -217,7 +232,7 @@ class DefaultActivity : AppCompatActivity() {
         val url = if (input.startsWith("http://") || input.startsWith("https://")) {
             input
         } else {
-            "https://$input"
+            "$input"
         }
         getCurrentTab()?.loadUrl(url)
     }
