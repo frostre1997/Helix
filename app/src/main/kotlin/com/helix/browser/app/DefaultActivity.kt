@@ -3,6 +3,7 @@ package com.helix.browser.app
 import android.app.AlertDialog
 import android.graphics.Color
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.view.*
 import android.webkit.WebView
@@ -12,6 +13,8 @@ import androidx.appcompat.widget.Toolbar
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import androidx.lifecycle.lifecycleScope
 import androidx.viewpager2.widget.ViewPager2
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import com.helix.browser.app.data.AppDatabase
 import com.helix.browser.app.data.History
 import kotlinx.coroutines.launch
@@ -39,14 +42,14 @@ class DefaultActivity : AppCompatActivity() {
         }
 
         // ----- Minimal Toolbar -----
-       val toolbar = Toolbar(this).apply {
-           val height = (40 * resources.displayMetrics.density).toInt() // 40dp
-           layoutParams = LinearLayout.LayoutParams(
-               ViewGroup.LayoutParams.MATCH_PARENT,
-               height
+        val toolbar = Toolbar(this).apply {
+            val height = (40 * resources.displayMetrics.density).toInt() // 40dp
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                height
             )
             setBackgroundColor(Color.BLACK)
-       }
+        }
 
         val toolbarContent = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -105,15 +108,24 @@ class DefaultActivity : AppCompatActivity() {
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
             )
+            // Ensure the WebView fills the entire area
+            clipChildren = false
         }
         swipeRefresh.addView(viewPager)
         root.addView(swipeRefresh)
 
         setContentView(root)
 
+        // --- Fix bottom cut-off (system navigation bar) ---
+        ViewCompat.setOnApplyWindowInsetsListener(swipeRefresh) { _, insets ->
+            val bottomInset = insets.getInsets(WindowInsetsCompat.Type.systemBars()).bottom
+            swipeRefresh.setPadding(0, 0, 0, bottomInset)
+            insets
+        }
+
         adapter = TabAdapter(this)
         viewPager.adapter = adapter
-        addNewTab("https://shields.io")
+        addNewTab("https://google.com")
 
         swipeRefresh.setOnRefreshListener {
             getCurrentTab()?.reload()
