@@ -3,7 +3,6 @@ package com.helix.browser.app
 import android.app.AlertDialog
 import android.graphics.Color
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.view.*
 import android.webkit.WebView
@@ -41,9 +40,9 @@ class DefaultActivity : AppCompatActivity() {
             setBackgroundColor(Color.WHITE)
         }
 
-        // ----- Minimal Toolbar -----
+        // ----- Minimal Toolbar (40dp) -----
         val toolbar = Toolbar(this).apply {
-            val height = (40 * resources.displayMetrics.density).toInt() // 40dp
+            val height = (40 * resources.displayMetrics.density).toInt()
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 height
@@ -61,11 +60,35 @@ class DefaultActivity : AppCompatActivity() {
             setPadding(16, 0, 16, 0)
         }
 
-        // ---- Domain (centered) ----
+        // ----- Back Button -----
+        val backBtn = ImageButton(this).apply {
+            setImageResource(R.drawable.ic_back)
+            setBackgroundColor(Color.TRANSPARENT)
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+            setOnClickListener { getCurrentTab()?.goBack() }
+        }
+        toolbarContent.addView(backBtn)
+
+        // ----- Forward Button -----
+        val forwardBtn = ImageButton(this).apply {
+            setImageResource(R.drawable.ic_forward)
+            setBackgroundColor(Color.TRANSPARENT)
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+            setOnClickListener { getCurrentTab()?.goForward() }
+        }
+        toolbarContent.addView(forwardBtn)
+
+        // ----- Domain (centered) -----
         domainText = TextView(this).apply {
             text = "Helix"
             setTextColor(Color.WHITE)
-            textSize = 18f
+            textSize = 16f
             gravity = Gravity.CENTER
             layoutParams = LinearLayout.LayoutParams(
                 0,
@@ -76,7 +99,33 @@ class DefaultActivity : AppCompatActivity() {
         }
         toolbarContent.addView(domainText)
 
-        // ---- Tabs count (right) ----
+        // ----- Refresh Button -----
+        val refreshBtn = ImageButton(this).apply {
+            setImageResource(R.drawable.ic_refresh)
+            setBackgroundColor(Color.TRANSPARENT)
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+            setOnClickListener { getCurrentTab()?.reload() }
+        }
+        toolbarContent.addView(refreshBtn)
+
+        // ----- Home Button -----
+        val homeBtn = ImageButton(this).apply {
+            setImageResource(R.drawable.ic_home)
+            setBackgroundColor(Color.TRANSPARENT)
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+            setOnClickListener {
+                loadUrlInCurrentTab("https://www.google.com")
+            }
+        }
+        toolbarContent.addView(homeBtn)
+
+        // ----- Tabs count (right) -----
         tabCountText = TextView(this).apply {
             text = "0"
             setTextColor(Color.WHITE)
@@ -108,7 +157,6 @@ class DefaultActivity : AppCompatActivity() {
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
             )
-            // Ensure the WebView fills the entire area
             clipChildren = false
         }
         swipeRefresh.addView(viewPager)
@@ -116,7 +164,7 @@ class DefaultActivity : AppCompatActivity() {
 
         setContentView(root)
 
-        // --- Fix bottom cut-off (system navigation bar) ---
+        // Fix bottom cut-off (system navigation bar)
         ViewCompat.setOnApplyWindowInsetsListener(swipeRefresh) { _, insets ->
             val bottomInset = insets.getInsets(WindowInsetsCompat.Type.systemBars()).bottom
             swipeRefresh.setPadding(0, 0, 0, bottomInset)
@@ -125,7 +173,7 @@ class DefaultActivity : AppCompatActivity() {
 
         adapter = TabAdapter(this)
         viewPager.adapter = adapter
-        addNewTab("https://google.com")
+        addNewTab("https://shields.io") // Placeholder – shows Shields.io
 
         swipeRefresh.setOnRefreshListener {
             getCurrentTab()?.reload()
@@ -180,7 +228,7 @@ class DefaultActivity : AppCompatActivity() {
         tabCountText.text = adapter.getTabCount().toString()
     }
 
-    // ----- Menu (hidden behind 3-dot) -----
+    // ----- Menu (3-dot) -----
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
         menu?.add(0, 1, 0, "Refresh")?.setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER)
         menu?.add(0, 2, 1, "Back")
