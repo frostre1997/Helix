@@ -37,13 +37,13 @@ class DefaultActivity : AppCompatActivity() {
             setBackgroundColor(Color.WHITE)
         }
 
-        // ----- Toolbar with URL input -----
+        // ----- Toolbar with URL input (black background) -----
         val toolbar = Toolbar(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT   // fixed: no resource lookup
+                ViewGroup.LayoutParams.WRAP_CONTENT
             )
-            setBackgroundColor(Color.parseColor("#000000"))
+            setBackgroundColor(Color.BLACK)
         }
 
         urlInput = EditText(this).apply {
@@ -52,7 +52,7 @@ class DefaultActivity : AppCompatActivity() {
             imeOptions = EditorInfo.IME_ACTION_GO
             setSingleLine(true)
             setTextColor(Color.WHITE)
-            setHintTextColor(Color.parseColor("#FFFFFF"))
+            setHintTextColor(Color.WHITE)   // <-- changed to pure white
             setBackgroundColor(Color.TRANSPARENT)
             layoutParams = Toolbar.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -93,7 +93,7 @@ class DefaultActivity : AppCompatActivity() {
         // ----- Init adapter and first tab -----
         adapter = TabAdapter(this)
         viewPager.adapter = adapter
-        addNewTab()
+        addNewTab() // Desktop UA is set inside TabFragment
 
         // ----- Swipe refresh -----
         swipeRefresh.setOnRefreshListener {
@@ -111,9 +111,6 @@ class DefaultActivity : AppCompatActivity() {
 
         // ----- Plugin manager -----
         pluginManager = PluginManager(this)
-
-        // ----- Apply desktop user agent to all tabs -----
-        applyDesktopModeToAllTabs()
     }
 
     // ---------- Menu ----------
@@ -154,8 +151,6 @@ class DefaultActivity : AppCompatActivity() {
         val fragment = TabFragment().apply { this.url = url }
         adapter.addTab(fragment)
         viewPager.setCurrentItem(adapter.getTabCount() - 1, true)
-        // Apply desktop UA to the new tab
-        fragment.webView.settings.userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         invalidateOptionsMenu()
     }
 
@@ -206,15 +201,6 @@ class DefaultActivity : AppCompatActivity() {
         }
     }
 
-    // ---------- Apply desktop user agent to all tabs ----------
-    fun applyDesktopModeToAllTabs() {
-        val ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-        for (i in 0 until adapter.getTabCount()) {
-            adapter.getTab(i).webView.settings.userAgentString = ua
-            adapter.getTab(i).webView.reload()
-        }
-    }
-
     // ---------- Plugin injection ----------
     fun injectPlugins(webView: WebView, url: String) {
         pluginManager.getPluginsForUrl(url).forEach { plugin ->
@@ -232,7 +218,7 @@ class DefaultActivity : AppCompatActivity() {
         val url = if (input.startsWith("http://") || input.startsWith("https://")) {
             input
         } else {
-            "$input"
+            "https://$input"
         }
         getCurrentTab()?.loadUrl(url)
     }
