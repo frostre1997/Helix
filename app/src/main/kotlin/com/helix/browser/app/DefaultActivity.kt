@@ -52,7 +52,7 @@ class DefaultActivity : AppCompatActivity() {
             imeOptions = EditorInfo.IME_ACTION_GO
             setSingleLine(true)
             setTextColor(Color.WHITE)
-            setHintTextColor(Color.WHITE)   // <-- changed to pure white
+            setHintTextColor(Color.WHITE)
             setBackgroundColor(Color.TRANSPARENT)
             layoutParams = Toolbar.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -76,7 +76,7 @@ class DefaultActivity : AppCompatActivity() {
         swipeRefresh.setOnChildScrollUpCallback { _, _ ->
             val tab = getCurrentTab()
             val webView = tab?.webView
-            webView?.canScrollVertically(-1) == true
+            webView?.scrollY == 0
         }
 
         viewPager = ViewPager2(this).apply {
@@ -215,10 +215,11 @@ class DefaultActivity : AppCompatActivity() {
 
     private fun loadUrlInCurrentTab(input: String) {
         if (input.isBlank()) return
-        val url = if (input.startsWith("http://") || input.startsWith("https://")) {
-            input
-        } else {
-            "https://$input"
+        val trimmed = input.trim()
+        val url = when {
+            trimmed.startsWith("http://") || trimmed.startsWith("https://") -> trimmed
+            trimmed.contains(".") && !trimmed.contains(" ") -> "https://$trimmed"
+            else -> "https://www.google.com/search?q=${trimmed.replace(' ', '+')}"
         }
         getCurrentTab()?.loadUrl(url)
     }
