@@ -10,7 +10,6 @@ import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
-import android.view.inputmethod.EditorInfo
 import androidx.lifecycle.lifecycleScope
 import androidx.viewpager2.widget.ViewPager2
 import com.helix.browser.app.data.AppDatabase
@@ -21,7 +20,7 @@ class DefaultActivity : AppCompatActivity() {
 
     private lateinit var viewPager: ViewPager2
     private lateinit var adapter: TabAdapter
-    private lateinit var domainText: TextView      // <-- shows just the domain
+    private lateinit var domainText: TextView
     private lateinit var swipeRefresh: SwipeRefreshLayout
     private val tabTitles = mutableMapOf<TabFragment, String>()
     lateinit var pluginManager: PluginManager
@@ -48,7 +47,7 @@ class DefaultActivity : AppCompatActivity() {
             setBackgroundColor(Color.BLACK)
         }
 
-        // ---- Toolbar content (horizontal layout) ----
+        // ---- Toolbar content ----
         val toolbarContent = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             layoutParams = Toolbar.LayoutParams(
@@ -61,7 +60,7 @@ class DefaultActivity : AppCompatActivity() {
 
         // ---- Back button ----
         val backBtn = ImageButton(this).apply {
-            setImageResource(android.R.drawable.ic_media_previous)
+            setImageResource(R.drawable.ic_back)
             setBackgroundColor(Color.TRANSPARENT)
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -75,15 +74,14 @@ class DefaultActivity : AppCompatActivity() {
 
         // ---- Forward button ----
         val forwardBtn = ImageButton(this).apply {
-            setImageResource(android.R.drawable.ic_media_next)
+            setImageResource(R.drawable.ic_forward)
             setBackgroundColor(Color.TRANSPARENT)
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
             setOnClickListener {
-                // We'll add forward later (WebView doesn't have goForward() in TabFragment yet)
-                Toast.makeText(this@DefaultActivity, "Forward not implemented", Toast.LENGTH_SHORT).show()
+                getCurrentTab()?.goForward()
             }
         }
         toolbarContent.addView(forwardBtn)
@@ -97,7 +95,7 @@ class DefaultActivity : AppCompatActivity() {
             layoutParams = LinearLayout.LayoutParams(
                 0,
                 ViewGroup.LayoutParams.WRAP_CONTENT,
-                1f  // weight 1 -> takes remaining space, centers text
+                1f  // takes remaining space – centers text
             )
             setOnClickListener {
                 showUrlEditor()
@@ -107,7 +105,7 @@ class DefaultActivity : AppCompatActivity() {
 
         // ---- Refresh button ----
         val refreshBtn = ImageButton(this).apply {
-            setImageResource(android.R.drawable.ic_menu_rotate)
+            setImageResource(R.drawable.ic_refresh)
             setBackgroundColor(Color.TRANSPARENT)
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -119,9 +117,23 @@ class DefaultActivity : AppCompatActivity() {
         }
         toolbarContent.addView(refreshBtn)
 
+        // ---- Home button ----
+        val homeBtn = ImageButton(this).apply {
+            setImageResource(R.drawable.ic_home)
+            setBackgroundColor(Color.TRANSPARENT)
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+            setOnClickListener {
+                loadUrlInCurrentTab("https://www.google.com")
+            }
+        }
+        toolbarContent.addView(homeBtn)
+
         // ---- Tabs button ----
         val tabsBtn = ImageButton(this).apply {
-            setImageResource(android.R.drawable.ic_menu_agenda) // or any icon
+            setImageResource(R.drawable.ic_tabs)
             setBackgroundColor(Color.TRANSPARENT)
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -166,7 +178,7 @@ class DefaultActivity : AppCompatActivity() {
         // ----- Init adapter and first tab -----
         adapter = TabAdapter(this)
         viewPager.adapter = adapter
-        addNewTab("https://google.com")
+        addNewTab("https://www.google.com")
 
         swipeRefresh.setOnRefreshListener {
             getCurrentTab()?.reload()
@@ -244,7 +256,7 @@ class DefaultActivity : AppCompatActivity() {
     }
 
     // ---------- Tab management ----------
-    fun addNewTab(url: String = "https://google.com") {
+    fun addNewTab(url: String = "https://www.google.com") {
         val fragment = TabFragment().apply { this.url = url }
         adapter.addTab(fragment)
         viewPager.setCurrentItem(adapter.getTabCount() - 1, true)
