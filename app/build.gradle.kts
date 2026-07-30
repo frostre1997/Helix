@@ -10,7 +10,7 @@ android {
 
     defaultConfig {
         applicationId = "com.helix.browser.app"
-        minSdk = 26   // GeckoView requires 26
+        minSdk = 26
         targetSdk = 36
         versionCode = 1
         versionName = "100.0.0.00"
@@ -39,11 +39,19 @@ android {
     }
 }
 
+// ---- Force Kotlin stdlib version ----
+configurations.all {
+    resolutionStrategy.eachDependency {
+        if (requested.group == "org.jetbrains.kotlin" && requested.name.startsWith("kotlin-stdlib")) {
+            useVersion("2.0.20")
+        }
+    }
+}
+
 dependencies {
-    // Force Kotlin stdlib version to match compiler
+    // Explicit Kotlin stdlib (redundant but safe)
     implementation("org.jetbrains.kotlin:kotlin-stdlib:2.0.20")
 
-    // ... all other dependencies ...
     implementation("androidx.core:core-ktx:1.18.0")
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("com.google.android.material:material:1.11.0")
@@ -56,6 +64,6 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.10.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
-    // GeckoView – if you need it
+    // GeckoView (if you still want it)
     implementation("org.mozilla.geckoview:geckoview:152.0.20260713164047")
 }
