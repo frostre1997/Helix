@@ -41,20 +41,25 @@ class TabFragment : Fragment() {
         // ---- Hardware acceleration ----
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
 
-        // ---- Fix touch interference with ViewPager2 ----
+        // ---- Fix scrolling: prevent parent from stealing touches ----
         webView.setOnTouchListener { _, event ->
             when (event.action) {
-                MotionEvent.ACTION_DOWN -> {
+                MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
+                    // Disallow parent (ViewPager2 & SwipeRefresh) from intercepting
                     webView.parent?.requestDisallowInterceptTouchEvent(true)
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     webView.parent?.requestDisallowInterceptTouchEvent(false)
                 }
             }
-            false
+            false // Let the WebView handle the touch
         }
 
-        // ---- Scrollbars and overscroll ----
+        // ---- Make WebView focusable so it receives scroll events ----
+        webView.isFocusableInTouchMode = true
+        webView.requestFocus()
+
+        // ---- Scrollbars ----
         webView.isVerticalScrollBarEnabled = true
         webView.isHorizontalScrollBarEnabled = true
         webView.overScrollMode = WebView.OVER_SCROLL_ALWAYS
@@ -66,8 +71,7 @@ class TabFragment : Fragment() {
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
                 view?.scrollTo(0, 0)
-
-                // Force viewport to device width
+                // Force viewport to device width (prevents horizontal scroll)
                 view?.evaluateJavascript(
                     "var meta = document.createElement('meta');" +
                     "meta.name = 'viewport';" +
@@ -75,7 +79,6 @@ class TabFragment : Fragment() {
                     "document.head.appendChild(meta);",
                     null
                 )
-
                 url?.let { (activity as? DefaultActivity)?.saveHistory(it, view?.title ?: it) }
                 (activity as? DefaultActivity)?.updateTabTitle(this@TabFragment, view?.title ?: url ?: "")
             }
@@ -103,7 +106,6 @@ class TabFragment : Fragment() {
                     <p style='color:#888;'>Check your URL or internet connection.</p>
                     </body></html>
                 """
-                // Keep the original URL in the address bar
                 view?.loadDataWithBaseURL(request?.url.toString(), errorHtml, "text/html", "UTF-8", null)
             }
         }
