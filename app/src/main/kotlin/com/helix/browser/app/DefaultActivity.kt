@@ -1,6 +1,8 @@
 package com.helix.browser.app
 
+import android.app.AlertDialog
 import android.graphics.Color
+import android.net.Uri
 import android.os.Bundle
 import android.view.*
 import android.webkit.WebView
@@ -19,7 +21,7 @@ class DefaultActivity : AppCompatActivity() {
 
     private lateinit var viewPager: ViewPager2
     private lateinit var adapter: TabAdapter
-    private lateinit var urlInput: EditText
+    private lateinit var domainText: TextView      // <-- shows just the domain
     private lateinit var swipeRefresh: SwipeRefreshLayout
     private val tabTitles = mutableMapOf<TabFragment, String>()
     lateinit var pluginManager: PluginManager
@@ -37,7 +39,7 @@ class DefaultActivity : AppCompatActivity() {
             setBackgroundColor(Color.WHITE)
         }
 
-        // ----- Toolbar with URL input (black background) -----
+        // ----- Custom Toolbar -----
         val toolbar = Toolbar(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -46,20 +48,92 @@ class DefaultActivity : AppCompatActivity() {
             setBackgroundColor(Color.BLACK)
         }
 
-        urlInput = EditText(this).apply {
-            hint = "Enter URL or search..."
-            inputType = android.text.InputType.TYPE_TEXT_VARIATION_URI
-            imeOptions = EditorInfo.IME_ACTION_GO
-            setSingleLine(true)
-            setTextColor(Color.WHITE)
-            setHintTextColor(Color.WHITE)
-            setBackgroundColor(Color.TRANSPARENT)
+        // ---- Toolbar content (horizontal layout) ----
+        val toolbarContent = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
             layoutParams = Toolbar.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(8, 0, 8, 0)
         }
-        toolbar.addView(urlInput)
+
+        // ---- Back button ----
+        val backBtn = ImageButton(this).apply {
+            setImageResource(android.R.drawable.ic_media_previous)
+            setBackgroundColor(Color.TRANSPARENT)
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+            setOnClickListener {
+                getCurrentTab()?.goBack()
+            }
+        }
+        toolbarContent.addView(backBtn)
+
+        // ---- Forward button ----
+        val forwardBtn = ImageButton(this).apply {
+            setImageResource(android.R.drawable.ic_media_next)
+            setBackgroundColor(Color.TRANSPARENT)
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+            setOnClickListener {
+                // We'll add forward later (WebView doesn't have goForward() in TabFragment yet)
+                Toast.makeText(this@DefaultActivity, "Forward not implemented", Toast.LENGTH_SHORT).show()
+            }
+        }
+        toolbarContent.addView(forwardBtn)
+
+        // ---- Domain TextView (centered) ----
+        domainText = TextView(this).apply {
+            text = "Helix"
+            setTextColor(Color.WHITE)
+            textSize = 18f
+            gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(
+                0,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                1f  // weight 1 -> takes remaining space, centers text
+            )
+            setOnClickListener {
+                showUrlEditor()
+            }
+        }
+        toolbarContent.addView(domainText)
+
+        // ---- Refresh button ----
+        val refreshBtn = ImageButton(this).apply {
+            setImageResource(android.R.drawable.ic_menu_rotate)
+            setBackgroundColor(Color.TRANSPARENT)
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+            setOnClickListener {
+                getCurrentTab()?.reload()
+            }
+        }
+        toolbarContent.addView(refreshBtn)
+
+        // ---- Tabs button ----
+        val tabsBtn = ImageButton(this).apply {
+            setImageResource(android.R.drawable.ic_menu_agenda) // or any icon
+            setBackgroundColor(Color.TRANSPARENT)
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+            setOnClickListener {
+                showTabSwitcher()
+            }
+        }
+        toolbarContent.addView(tabsBtn)
+
+        toolbar.addView(toolbarContent)
         root.addView(toolbar)
 
         // ----- SwipeRefreshLayout + ViewPager -----
@@ -72,7 +146,6 @@ class DefaultActivity : AppCompatActivity() {
             setColorSchemeResources(android.R.color.holo_blue_bright)
         }
 
-        // ---- Fix: refresh only when scrolled to top ----
         swipeRefresh.setOnChildScrollUpCallback { _, _ ->
             val tab = getCurrentTab()
             val webView = tab?.webView
@@ -93,34 +166,59 @@ class DefaultActivity : AppCompatActivity() {
         // ----- Init adapter and first tab -----
         adapter = TabAdapter(this)
         viewPager.adapter = adapter
-        addNewTab() // Desktop UA is set inside TabFragment
+        addNewTab("https://google.com")
 
-        // ----- Swipe refresh -----
         swipeRefresh.setOnRefreshListener {
             getCurrentTab()?.reload()
             swipeRefresh.isRefreshing = false
         }
 
-        // ----- URL enter key -----
-        urlInput.setOnEditorActionListener { _, actionId, _ ->
-            if (actionId == EditorInfo.IME_ACTION_GO) {
-                loadUrlInCurrentTab(urlInput.text.toString())
-                true
-            } else false
-        }
-
-        // ----- Plugin manager -----
         pluginManager = PluginManager(this)
+    }
+
+    // ---------- Show URL editor dialog ----------
+    private fun showUrlEditor() {
+        val currentTab = getCurrentTab()
+        val currentUrl = currentTab?.webView?.url ?: ""
+        val input = EditText(this).apply {
+            setText(currentUrl)
+            setSelection(text.length)
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Search on Helix")
+            .setView(input)
+            .setPositiveButton("Go") { _, _ ->
+                val url = input.text.toString()
+                if (url.isNotEmpty()) {
+                    loadUrlInCurrentTab(url)
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    // ---------- Update domain text when page changes ----------
+    fun updateDomain(url: String?) {
+        if (url.isNullOrEmpty()) {
+            domainText.text = "Helix"
+            return
+        }
+        val domain = try {
+            val host = Uri.parse(url).host ?: url
+            host.removePrefix("www.")
+        } catch (_: Exception) {
+            url
+        }
+        domainText.text = domain
     }
 
     // ---------- Menu ----------
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
-        menu?.add(0, 1, 0, "Refresh")?.setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
+        menu?.add(0, 1, 0, "Refresh")?.setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER)
         menu?.add(0, 2, 1, "Bookmarks")
         menu?.add(0, 3, 2, "History")
         menu?.add(0, 4, 3, "Plugin Store")
         menu?.add(0, 5, 4, "Settings")
-        menu?.add(0, 6, 5, "Tabs")
         return true
     }
 
@@ -131,7 +229,6 @@ class DefaultActivity : AppCompatActivity() {
             3 -> startActivity(android.content.Intent(this, HistoryActivity::class.java))
             4 -> startActivity(android.content.Intent(this, PluginStoreActivity::class.java))
             5 -> startActivity(android.content.Intent(this, SettingsActivity::class.java))
-            6 -> showTabSwitcher()
         }
         return true
     }
@@ -147,7 +244,7 @@ class DefaultActivity : AppCompatActivity() {
     }
 
     // ---------- Tab management ----------
-    fun addNewTab(url: String = "https://www.google.com") {
+    fun addNewTab(url: String = "https://google.com") {
         val fragment = TabFragment().apply { this.url = url }
         adapter.addTab(fragment)
         viewPager.setCurrentItem(adapter.getTabCount() - 1, true)
@@ -189,7 +286,9 @@ class DefaultActivity : AppCompatActivity() {
         tabTitles[tab] = title
         if (getCurrentTab() == tab) {
             supportActionBar?.title = title
-            urlInput.setText(tab.webView.url ?: "")
+            // Update the domain text with the actual URL
+            val url = tab.webView.url
+            updateDomain(url)
         }
         invalidateOptionsMenu()
     }
