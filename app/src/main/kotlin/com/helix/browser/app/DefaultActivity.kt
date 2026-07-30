@@ -21,6 +21,7 @@ class DefaultActivity : AppCompatActivity() {
     private lateinit var viewPager: ViewPager2
     private lateinit var adapter: TabAdapter
     private lateinit var domainText: TextView
+    private lateinit var tabCountText: TextView
     private lateinit var swipeRefresh: SwipeRefreshLayout
     private val tabTitles = mutableMapOf<TabFragment, String>()
     lateinit var pluginManager: PluginManager
@@ -37,14 +38,15 @@ class DefaultActivity : AppCompatActivity() {
             setBackgroundColor(Color.WHITE)
         }
 
-        // ----- Toolbar -----
-        val toolbar = Toolbar(this).apply {
-            layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
+        // ----- Minimal Toolbar -----
+       val toolbar = Toolbar(this).apply {
+           val height = (40 * resources.displayMetrics.density).toInt() // 40dp
+           layoutParams = LinearLayout.LayoutParams(
+               ViewGroup.LayoutParams.MATCH_PARENT,
+               height
             )
             setBackgroundColor(Color.BLACK)
-        }
+       }
 
         val toolbarContent = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -53,34 +55,10 @@ class DefaultActivity : AppCompatActivity() {
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(8, 0, 8, 0)
+            setPadding(16, 0, 16, 0)
         }
 
-        // ---- Back ----
-        val backBtn = ImageButton(this).apply {
-            setImageResource(R.drawable.ic_back)
-            setBackgroundColor(Color.TRANSPARENT)
-            layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            )
-            setOnClickListener { getCurrentTab()?.goBack() }
-        }
-        toolbarContent.addView(backBtn)
-
-        // ---- Forward ----
-        val forwardBtn = ImageButton(this).apply {
-            setImageResource(R.drawable.ic_forward)
-            setBackgroundColor(Color.TRANSPARENT)
-            layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            )
-            setOnClickListener { getCurrentTab()?.goForward() }
-        }
-        toolbarContent.addView(forwardBtn)
-
-        // ---- Domain ----
+        // ---- Domain (centered) ----
         domainText = TextView(this).apply {
             text = "Helix"
             setTextColor(Color.WHITE)
@@ -91,47 +69,20 @@ class DefaultActivity : AppCompatActivity() {
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 1f
             )
-            setOnClickListener { showUrlEditor() }
+            setOnClickListener { showSearchDialog() }
         }
         toolbarContent.addView(domainText)
 
-        // ---- Refresh ----
-        val refreshBtn = ImageButton(this).apply {
-            setImageResource(R.drawable.ic_refresh)
-            setBackgroundColor(Color.TRANSPARENT)
-            layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            )
-            setOnClickListener { getCurrentTab()?.reload() }
-        }
-        toolbarContent.addView(refreshBtn)
-
-        // ---- Home ----
-        val homeBtn = ImageButton(this).apply {
-            setImageResource(R.drawable.ic_home)
-            setBackgroundColor(Color.TRANSPARENT)
-            layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            )
-            setOnClickListener {
-                loadUrlInCurrentTab("https://www.google.com")
-            }
-        }
-        toolbarContent.addView(homeBtn)
-
-        // ---- Tabs ----
-        val tabsBtn = ImageButton(this).apply {
-            setImageResource(R.drawable.ic_tabs)
-            setBackgroundColor(Color.TRANSPARENT)
-            layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            )
+        // ---- Tabs count (right) ----
+        tabCountText = TextView(this).apply {
+            text = "0"
+            setTextColor(Color.WHITE)
+            textSize = 13f
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(8, 0, 0, 0)
             setOnClickListener { showTabSwitcher() }
         }
-        toolbarContent.addView(tabsBtn)
+        toolbarContent.addView(tabCountText)
 
         toolbar.addView(toolbarContent)
         root.addView(toolbar)
@@ -160,10 +111,9 @@ class DefaultActivity : AppCompatActivity() {
 
         setContentView(root)
 
-        // ----- Init -----
         adapter = TabAdapter(this)
         viewPager.adapter = adapter
-        addNewTab("https://www.google.com")
+        addNewTab("https://shields.io")
 
         swipeRefresh.setOnRefreshListener {
             getCurrentTab()?.reload()
@@ -171,15 +121,21 @@ class DefaultActivity : AppCompatActivity() {
         }
 
         pluginManager = PluginManager(this)
+        updateTabCount()
     }
 
-    // ---------- Dialog ----------
-    private fun showUrlEditor() {
+    // ----- Floating search dialog -----
+    private fun showSearchDialog() {
         val currentTab = getCurrentTab()
         val currentUrl = currentTab?.webView?.url ?: ""
         val input = EditText(this).apply {
             setText(currentUrl)
             setSelection(text.length)
+            setHint("Search or enter URL")
+            setHintTextColor(Color.GRAY)
+            setTextColor(Color.BLACK)
+            setBackgroundColor(Color.WHITE)
+            setPadding(32, 16, 32, 16)
         }
         AlertDialog.Builder(this)
             .setTitle("Search on Helix")
@@ -192,7 +148,7 @@ class DefaultActivity : AppCompatActivity() {
             .show()
     }
 
-    // ---------- Update domain ----------
+    // ----- Update domain -----
     fun updateDomain(url: String?) {
         if (url.isNullOrEmpty()) {
             domainText.text = "Helix"
@@ -205,25 +161,36 @@ class DefaultActivity : AppCompatActivity() {
             url
         }
         domainText.text = domain
+        updateTabCount()
     }
 
-    // ---------- Menu ----------
+    private fun updateTabCount() {
+        tabCountText.text = adapter.getTabCount().toString()
+    }
+
+    // ----- Menu (hidden behind 3-dot) -----
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
         menu?.add(0, 1, 0, "Refresh")?.setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER)
-        menu?.add(0, 2, 1, "Bookmarks")
-        menu?.add(0, 3, 2, "History")
-        menu?.add(0, 4, 3, "Plugin Store")
-        menu?.add(0, 5, 4, "Settings")
+        menu?.add(0, 2, 1, "Back")
+        menu?.add(0, 3, 2, "Forward")
+        menu?.add(0, 4, 3, "Home")
+        menu?.add(0, 5, 4, "Bookmarks")
+        menu?.add(0, 6, 5, "History")
+        menu?.add(0, 7, 6, "Plugin Store")
+        menu?.add(0, 8, 7, "Settings")
         return true
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         when (item.itemId) {
             1 -> getCurrentTab()?.reload()
-            2 -> startActivity(android.content.Intent(this, BookmarksActivity::class.java))
-            3 -> startActivity(android.content.Intent(this, HistoryActivity::class.java))
-            4 -> startActivity(android.content.Intent(this, PluginStoreActivity::class.java))
-            5 -> startActivity(android.content.Intent(this, SettingsActivity::class.java))
+            2 -> getCurrentTab()?.goBack()
+            3 -> getCurrentTab()?.goForward()
+            4 -> loadUrlInCurrentTab("https://www.google.com")
+            5 -> startActivity(android.content.Intent(this, BookmarksActivity::class.java))
+            6 -> startActivity(android.content.Intent(this, HistoryActivity::class.java))
+            7 -> startActivity(android.content.Intent(this, PluginStoreActivity::class.java))
+            8 -> startActivity(android.content.Intent(this, SettingsActivity::class.java))
         }
         return true
     }
@@ -236,11 +203,12 @@ class DefaultActivity : AppCompatActivity() {
         }
     }
 
-    // ---------- Tab management ----------
+    // ----- Tab management -----
     fun addNewTab(url: String = "https://www.google.com") {
         val fragment = TabFragment().apply { this.url = url }
         adapter.addTab(fragment)
         viewPager.setCurrentItem(adapter.getTabCount() - 1, true)
+        updateTabCount()
         invalidateOptionsMenu()
     }
 
@@ -253,6 +221,7 @@ class DefaultActivity : AppCompatActivity() {
         if (position >= adapter.getTabCount()) {
             viewPager.setCurrentItem(adapter.getTabCount() - 1, false)
         }
+        updateTabCount()
         invalidateOptionsMenu()
     }
 
