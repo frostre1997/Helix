@@ -40,6 +40,10 @@ android {
 }
 
 dependencies {
+    // Force Kotlin stdlib version to match compiler
+    implementation("org.jetbrains.kotlin:kotlin-stdlib:2.0.20")
+
+    // ... all other dependencies ...
     implementation("androidx.core:core-ktx:1.18.0")
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("com.google.android.material:material:1.11.0")
@@ -48,12 +52,10 @@ dependencies {
     implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
     implementation("androidx.room:room-runtime:2.6.0")
     implementation("androidx.room:room-ktx:2.6.0")
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.10.0")
-
-    // GeckoView (optional – use a valid version)
-    implementation("org.mozilla.geckoview:geckoview:152.0.20260713164047")
-
-    // Replace kapt with ksp
     ksp("androidx.room:room-compiler:2.6.0")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.10.0")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
+    // GeckoView – if you need it
+    implementation("org.mozilla.geckoview:geckoview:152.0.20260713164047")
 }
