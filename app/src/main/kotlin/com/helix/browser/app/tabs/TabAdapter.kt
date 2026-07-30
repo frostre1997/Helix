@@ -23,4 +23,7 @@ class TabAdapter(activity: FragmentActivity) : FragmentStateAdapter(activity) {
     }
 
     fun getTab(position: Int): TabFragment = fragments[position]
+
+    // ----- Added this method -----
+    fun getTabCount(): Int = fragments.size
 }
