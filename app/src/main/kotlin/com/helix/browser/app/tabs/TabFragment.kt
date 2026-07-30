@@ -38,12 +38,6 @@ class TabFragment : Fragment() {
         webView.settings.loadWithOverviewMode = true
         webView.settings.useWideViewPort = true
 
-        // ---- Force page to fit screen width ----
-        webView.settings.setLayoutAlgorithm(WebSettings.LayoutAlgorithm.NARROW_COLUMNS)
-        webView.settings.setSupportZoom(true)
-        webView.settings.setBuiltInZoomControls(true)
-        webView.settings.setDisplayZoomControls(false) // remove zoom buttons
-
         // ---- Hardware acceleration ----
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
 
@@ -73,7 +67,7 @@ class TabFragment : Fragment() {
                 super.onPageFinished(view, url)
                 view?.scrollTo(0, 0)
 
-                // ---- Force viewport to device width ----
+                // Force viewport to device width
                 view?.evaluateJavascript(
                     "var meta = document.createElement('meta');" +
                     "meta.name = 'viewport';" +
@@ -102,13 +96,15 @@ class TabFragment : Fragment() {
             ) {
                 super.onReceivedError(view, request, error)
                 val errorHtml = """
-                    <html><body style='text-align:center;padding:40px;font-family:sans-serif;'>
+                    <html><head><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+                    <body style='text-align:center;padding:40px;font-family:sans-serif;'>
                     <h2>🌐 Oops!</h2>
                     <p>Could not load the page.<br>${error?.description}</p>
                     <p style='color:#888;'>Check your URL or internet connection.</p>
                     </body></html>
                 """
-                view?.loadData(errorHtml, "text/html", "UTF-8")
+                // Keep the original URL in the address bar
+                view?.loadDataWithBaseURL(request?.url.toString(), errorHtml, "text/html", "UTF-8", null)
             }
         }
 
