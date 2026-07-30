@@ -43,7 +43,7 @@ class DefaultActivity : AppCompatActivity() {
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT   // fixed: no resource lookup
             )
-            setBackgroundColor(Color.parseColor("#6200EE"))
+            setBackgroundColor(Color.parseColor("#000000"))
         }
 
         urlInput = EditText(this).apply {
@@ -52,7 +52,7 @@ class DefaultActivity : AppCompatActivity() {
             imeOptions = EditorInfo.IME_ACTION_GO
             setSingleLine(true)
             setTextColor(Color.WHITE)
-            setHintTextColor(Color.parseColor("#B3FFFFFF"))
+            setHintTextColor(Color.parseColor("#FFFFFF"))
             setBackgroundColor(Color.TRANSPARENT)
             layoutParams = Toolbar.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
