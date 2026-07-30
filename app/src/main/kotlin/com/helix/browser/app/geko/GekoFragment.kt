@@ -9,7 +9,7 @@ import org.mozilla.geckoview.GeckoRuntime
 import org.mozilla.geckoview.GeckoSession
 import org.mozilla.geckoview.GeckoView
 
-class GeckoFragment : Fragment() {
+class GekoFragment : Fragment() {
 
     private lateinit var geckoView: GeckoView
     private lateinit var session: GeckoSession
@@ -31,10 +31,10 @@ class GeckoFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // Create runtime (one per app, shared across sessions)
+        // Create runtime (one per app)
         val runtime = GeckoRuntime.create(requireContext())
 
-        // Create session
+        // Create session and open it
         session = GeckoSession()
         session.open(runtime)
         geckoView.setSession(session)
@@ -73,4 +73,7 @@ class GeckoFragment : Fragment() {
     fun reload() {
         session.reload()
     }
+
+    fun canGoBack(): Boolean = session.canGoBack()
+    fun canGoForward(): Boolean = session.canGoForward()
 }
