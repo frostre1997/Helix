@@ -16,11 +16,7 @@ class TabSwitcherBottomSheet : BottomSheetDialogFragment() {
     private lateinit var recyclerView: RecyclerView
     private lateinit var adapter: TabSwitcherAdapter
 
-    override fun onCreateView(
-        inflater: LayoutInflater,
-        container: ViewGroup?,
-        savedInstanceState: Bundle?
-    ): View? {
+    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
         val root = LinearLayout(requireContext()).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(16, 16, 16, 16)
@@ -55,7 +51,6 @@ class TabSwitcherBottomSheet : BottomSheetDialogFragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-
         recyclerView.layoutManager = LinearLayoutManager(requireContext())
         val tabs = (activity as? DefaultActivity)?.getTabs() ?: emptyList()
         adapter = TabSwitcherAdapter(
