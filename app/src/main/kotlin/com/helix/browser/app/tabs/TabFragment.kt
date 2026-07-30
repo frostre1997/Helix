@@ -38,10 +38,16 @@ class TabFragment : Fragment() {
         webView.settings.loadWithOverviewMode = true
         webView.settings.useWideViewPort = true
 
+        // ---- Force page to fit screen width ----
+        webView.settings.setLayoutAlgorithm(WebSettings.LayoutAlgorithm.NARROW_COLUMNS)
+        webView.settings.setSupportZoom(true)
+        webView.settings.setBuiltInZoomControls(true)
+        webView.settings.setDisplayZoomControls(false) // remove zoom buttons
+
         // ---- Hardware acceleration ----
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
 
-        // ---- Fix ViewPager2 touch interference ----
+        // ---- Fix touch interference with ViewPager2 ----
         webView.setOnTouchListener { _, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
@@ -54,7 +60,7 @@ class TabFragment : Fragment() {
             false
         }
 
-        // ---- Enable scrollbars ----
+        // ---- Scrollbars and overscroll ----
         webView.isVerticalScrollBarEnabled = true
         webView.isHorizontalScrollBarEnabled = true
         webView.overScrollMode = WebView.OVER_SCROLL_ALWAYS
@@ -65,9 +71,21 @@ class TabFragment : Fragment() {
         webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
+                view?.scrollTo(0, 0)
+
+                // ---- Force viewport to device width ----
+                view?.evaluateJavascript(
+                    "var meta = document.createElement('meta');" +
+                    "meta.name = 'viewport';" +
+                    "meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0';" +
+                    "document.head.appendChild(meta);",
+                    null
+                )
+
                 url?.let { (activity as? DefaultActivity)?.saveHistory(it, view?.title ?: it) }
                 (activity as? DefaultActivity)?.updateTabTitle(this@TabFragment, view?.title ?: url ?: "")
             }
+
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                 val url = request?.url.toString()
                 if (!url.startsWith("http://") && !url.startsWith("https://")) {
@@ -75,6 +93,22 @@ class TabFragment : Fragment() {
                     return true
                 }
                 return false
+            }
+
+            override fun onReceivedError(
+                view: WebView?,
+                request: WebResourceRequest?,
+                error: WebResourceError?
+            ) {
+                super.onReceivedError(view, request, error)
+                val errorHtml = """
+                    <html><body style='text-align:center;padding:40px;font-family:sans-serif;'>
+                    <h2>🌐 Oops!</h2>
+                    <p>Could not load the page.<br>${error?.description}</p>
+                    <p style='color:#888;'>Check your URL or internet connection.</p>
+                    </body></html>
+                """
+                view?.loadData(errorHtml, "text/html", "UTF-8")
             }
         }
 
