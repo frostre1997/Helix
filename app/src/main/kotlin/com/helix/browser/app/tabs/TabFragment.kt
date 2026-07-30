@@ -38,40 +38,37 @@ class TabFragment : Fragment() {
         webView.settings.loadWithOverviewMode = true
         webView.settings.useWideViewPort = true
 
-        // ---- Hardware acceleration ----
+        // Hardware acceleration
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
 
-        // ---- Fix scrolling: prevent parent from stealing touches ----
+        // Fix touch interference with ViewPager2
         webView.setOnTouchListener { _, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
-                    // Disallow parent (ViewPager2 & SwipeRefresh) from intercepting
                     webView.parent?.requestDisallowInterceptTouchEvent(true)
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     webView.parent?.requestDisallowInterceptTouchEvent(false)
                 }
             }
-            false // Let the WebView handle the touch
+            false
         }
 
-        // ---- Make WebView focusable so it receives scroll events ----
+        // Focus and scrollbars
         webView.isFocusableInTouchMode = true
         webView.requestFocus()
-
-        // ---- Scrollbars ----
         webView.isVerticalScrollBarEnabled = true
         webView.isHorizontalScrollBarEnabled = true
         webView.overScrollMode = WebView.OVER_SCROLL_ALWAYS
 
-        // ---- Desktop User Agent ----
+        // Desktop User Agent
         webView.settings.userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
         webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
                 view?.scrollTo(0, 0)
-                // Force viewport to device width (prevents horizontal scroll)
+                // Force viewport to device width
                 view?.evaluateJavascript(
                     "var meta = document.createElement('meta');" +
                     "meta.name = 'viewport';" +
@@ -81,6 +78,7 @@ class TabFragment : Fragment() {
                 )
                 url?.let { (activity as? DefaultActivity)?.saveHistory(it, view?.title ?: it) }
                 (activity as? DefaultActivity)?.updateTabTitle(this@TabFragment, view?.title ?: url ?: "")
+                (activity as? DefaultActivity)?.updateDomain(url)
             }
 
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
@@ -162,8 +160,10 @@ class TabFragment : Fragment() {
         }
     }
 
+    // ----- Public methods -----
     fun loadUrl(url: String) { this.url = url; webView.loadUrl(url) }
     fun goBack(): Boolean { if (webView.canGoBack()) { webView.goBack(); return true }; return false }
+    fun goForward(): Boolean { if (webView.canGoForward()) { webView.goForward(); return true }; return false }
     fun canGoBack() = webView.canGoBack()
     fun reload() = webView.reload()
 }
