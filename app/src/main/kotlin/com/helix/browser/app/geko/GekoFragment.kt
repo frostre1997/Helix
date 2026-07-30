@@ -1,0 +1,76 @@
+package com.helix.browser.app
+
+import android.os.Bundle
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import androidx.fragment.app.Fragment
+import org.mozilla.geckoview.GeckoRuntime
+import org.mozilla.geckoview.GeckoSession
+import org.mozilla.geckoview.GeckoView
+
+class GeckoFragment : Fragment() {
+
+    private lateinit var geckoView: GeckoView
+    private lateinit var session: GeckoSession
+    private var url: String = ""
+
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View? {
+        geckoView = GeckoView(requireContext())
+        geckoView.layoutParams = ViewGroup.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT
+        )
+        return geckoView
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+
+        // Create runtime (one per app, shared across sessions)
+        val runtime = GeckoRuntime.create(requireContext())
+
+        // Create session
+        session = GeckoSession()
+        session.open(runtime)
+        geckoView.setSession(session)
+
+        // Load URL
+        if (url.isNotEmpty()) {
+            session.loadUri(url)
+        } else {
+            session.loadUri("https://www.google.com")
+        }
+    }
+
+    fun loadUrl(url: String) {
+        this.url = url
+        if (::session.isInitialized) {
+            session.loadUri(url)
+        }
+    }
+
+    fun goBack(): Boolean {
+        if (session.canGoBack()) {
+            session.goBack()
+            return true
+        }
+        return false
+    }
+
+    fun goForward(): Boolean {
+        if (session.canGoForward()) {
+            session.goForward()
+            return true
+        }
+        return false
+    }
+
+    fun reload() {
+        session.reload()
+    }
+}
