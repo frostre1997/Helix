@@ -73,7 +73,11 @@ class DefaultActivity : AppCompatActivity() {
             )
             setColorSchemeResources(android.R.color.holo_blue_bright)
         }
-
+        swipeRefresh.setOnChildScrollUpCallback {_, _ ->
+            val tab = getCurrentTab()
+            val webView = tab? .webView
+            webView?.canScrollVertically(-1) == true
+        }
         viewPager = ViewPager2(this).apply {
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
