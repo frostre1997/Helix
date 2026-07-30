@@ -1,7 +1,7 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
-    id("kotlin-kapt")
+    id("com.google.devtools.ksp")
 }
 
 android {
@@ -10,20 +10,10 @@ android {
 
     defaultConfig {
         applicationId = "com.helix.browser.app"
-        minSdk = 26
+        minSdk = 26   // GeckoView requires 26
         targetSdk = 36
         versionCode = 1
         versionName = "100.0.0.00"
-    }
-
-    buildTypes {
-        release {
-            isMinifyEnabled = false
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
-        }
     }
 
     compileOptions {
@@ -50,7 +40,7 @@ android {
 }
 
 dependencies {
-    implementation("androidx.core:core-ktx:1.12.0")
+    implementation("androidx.core:core-ktx:1.18.0")
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("com.google.android.material:material:1.11.0")
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
@@ -58,10 +48,12 @@ dependencies {
     implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
     implementation("androidx.room:room-runtime:2.6.0")
     implementation("androidx.room:room-ktx:2.6.0")
-    kapt("androidx.room:room-compiler:2.6.0")
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.6.1")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.10.0")
 
-    // GeckoView – the exact version
+    // GeckoView (optional – use a valid version)
     implementation("org.mozilla.geckoview:geckoview:152.0.20260713164047")
+
+    // Replace kapt with ksp
+    ksp("androidx.room:room-compiler:2.6.0")
 }
