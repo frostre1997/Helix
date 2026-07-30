@@ -20,11 +20,7 @@ class TabAdapter(activity: FragmentActivity) : FragmentStateAdapter(activity) {
     fun removeTab(position: Int) {
         fragments.removeAt(position)
         notifyItemRemoved(position)
-        // Also destroy the fragment's WebView to free memory
-        // The adapter automatically handles fragment destruction
     }
 
     fun getTab(position: Int): TabFragment = fragments[position]
-
-    fun getTabCount() = fragments.size
 }
