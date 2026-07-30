@@ -1,4 +1,4 @@
-package com.helix.browser.app
+package com.helix.browser.app.geko
 
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -31,15 +31,11 @@ class GekoFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // Create runtime (one per app)
         val runtime = GeckoRuntime.create(requireContext())
-
-        // Create session and open it
         session = GeckoSession()
         session.open(runtime)
         geckoView.setSession(session)
 
-        // Load URL
         if (url.isNotEmpty()) {
             session.loadUri(url)
         } else {
