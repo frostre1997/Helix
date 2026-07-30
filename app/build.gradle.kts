@@ -65,5 +65,5 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.6.1")
 
-    implementation("org.mozilla.geckoview:geckoview:125.0.20240409004938")
+    implementation("org.mozilla.geckoview:geckoview:125.0")
 }
