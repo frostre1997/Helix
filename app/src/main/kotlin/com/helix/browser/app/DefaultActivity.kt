@@ -5,6 +5,7 @@ import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
 import android.view.*
+import android.view.inputmethod.EditorInfo          // ← added
 import android.view.inputmethod.InputMethodManager
 import android.webkit.WebView
 import android.widget.*
@@ -17,6 +18,8 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import android.text.Editable
+import android.text.TextWatcher
 import com.helix.browser.app.data.AppDatabase
 import com.helix.browser.app.data.Bookmark
 import com.helix.browser.app.data.History
@@ -24,8 +27,6 @@ import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONArray
-import android.text.Editable
-import android.text.TextWatcher
 
 class DefaultActivity : AppCompatActivity() {
 
@@ -194,7 +195,6 @@ class DefaultActivity : AppCompatActivity() {
         suggestionsList = searchOverlay.findViewById(R.id.suggestionsList)
         suggestionsList.layoutManager = LinearLayoutManager(this)
 
-        // Adapter for suggestions
         suggestionAdapter = SearchSuggestionAdapter(emptyList()) { suggestion ->
             searchInput.setText(suggestion)
             searchInput.setSelection(suggestion.length)
@@ -203,7 +203,6 @@ class DefaultActivity : AppCompatActivity() {
         }
         suggestionsList.adapter = suggestionAdapter
 
-        // TextWatcher for live suggestions
         searchInput.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
