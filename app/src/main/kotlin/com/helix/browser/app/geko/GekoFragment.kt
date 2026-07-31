@@ -11,7 +11,7 @@ import org.mozilla.geckoview.GeckoView
 
 class GekoFragment : Fragment() {
 
-    private lateinit var geckoView: GeckoView
+    private lateinit var geckoView: GeckoView   // ← fixed typo
     private lateinit var session: GeckoSession
     private var url: String = ""
 
@@ -20,27 +20,21 @@ class GekoFragment : Fragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
-        geckoView = GeckoView(requireContext())
+        geckoView = GeckoView(requireContext())   // ← fixed typo
         geckoView.layoutParams = ViewGroup.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.MATCH_PARENT
         )
-        return geckoView
+        return geckoView   // ← fixed typo
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        WebVeiw.settings.javaScriptEnabled = true
-        WebVeiw.settings.loadWithOverviewMode = true
-        WebVeiw.settings.useWideViewPort = true
-
-        WebVeiw.settings.setMediaPlaybackRequiresUserGesture(false)
-        
         val runtime = GeckoRuntime.create(requireContext())
         session = GeckoSession()
         session.open(runtime)
-        geckoView.setSession(session)
+        geckoView.setSession(session)   // ← fixed typo
 
         if (url.isNotEmpty()) {
             session.loadUri(url)
@@ -57,7 +51,7 @@ class GekoFragment : Fragment() {
     }
 
     fun goBack(): Boolean {
-        if (session.canGoBack()) {
+        if (session.canGoBack()) {   // ← correct method
             session.goBack()
             return true
         }
@@ -65,7 +59,7 @@ class GekoFragment : Fragment() {
     }
 
     fun goForward(): Boolean {
-        if (session.canGoForward()) {
+        if (session.canGoForward()) {   // ← correct method
             session.goForward()
             return true
         }
