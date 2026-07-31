@@ -18,6 +18,7 @@ class GekoFragment : Fragment() {
     // ---- Custom history stack ----
     private val history = mutableListOf<String>()
     private var currentIndex = -1
+    private var isBackForward = false
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -40,24 +41,21 @@ class GekoFragment : Fragment() {
         session.open(runtime)
         geckoView.setSession(session)
 
-        // ---- Track history using onLoadUri ----
-        session.setNavigationDelegate(object : GeckoSession.NavigationDelegate {
-            override fun onLoadUri(
-                session: GeckoSession,
-                uri: String?,
-                flags: Int
-            ): GeckoResult<Boolean>? {
-                uri?.let {
-                    // Add to history before loading
-                    if (history.isEmpty() || history.last() != it) {
+        // ---- Track page loads via ProgressDelegate ----
+        session.setProgressDelegate(object : GeckoSession.ProgressDelegate {
+            override fun onPageStop(session: GeckoSession, success: Boolean) {
+                if (!isBackForward) {
+                    val currentUrl = session.uri
+                    if (currentUrl != null && (history.isEmpty() || history.last() != currentUrl)) {
+                        // Remove forward history if we navigated back
                         if (currentIndex < history.size - 1) {
                             history.subList(currentIndex + 1, history.size).clear()
                         }
-                        history.add(it)
+                        history.add(currentUrl)
                         currentIndex = history.size - 1
                     }
                 }
-                return null // Allow navigation
+                isBackForward = false
             }
         })
 
@@ -77,6 +75,7 @@ class GekoFragment : Fragment() {
 
     fun goBack(): Boolean {
         if (currentIndex > 0) {
+            isBackForward = true
             currentIndex--
             session.loadUri(history[currentIndex])
             return true
@@ -86,6 +85,7 @@ class GekoFragment : Fragment() {
 
     fun goForward(): Boolean {
         if (currentIndex < history.size - 1) {
+            isBackForward = true
             currentIndex++
             session.loadUri(history[currentIndex])
             return true
