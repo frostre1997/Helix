@@ -38,6 +38,9 @@ class TabFragment : Fragment() {
         webView.settings.loadWithOverviewMode = true
         webView.settings.useWideViewPort = true
 
+        // ---- Enable autoplay ----
+        webView.settings.setMediaPlaybackRequiresUserGesture(false)
+
         // Hardware acceleration
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
 
