@@ -58,20 +58,20 @@ class DefaultActivity : AppCompatActivity() {
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(8, 0, 8, 0)  // ← edge padding (left/right)
+            setPadding(8, 0, 8, 0)
         }
 
-        // ----- Helper to create icon buttons -----
+        // ----- Helper to create perfectly centered 24dp icons -----
         fun createIconButton(drawableRes: Int, onClick: () -> Unit): ImageButton {
             val dp = resources.displayMetrics.density
             return ImageButton(this).apply {
                 setImageResource(drawableRes)
                 setBackgroundColor(Color.TRANSPARENT)
-                val size = (24 * dp).toInt()   // ← 24dp icon size
+                val size = (24 * dp).toInt()
                 val params = LinearLayout.LayoutParams(size, size)
-                params.setMargins(0, 0, (4 * dp).toInt(), 0) // ← 4dp spacing between icons
+                params.setMargins(0, 0, (4 * dp).toInt(), 0) // 4dp spacing
                 layoutParams = params
-                scaleType = ImageView.ScaleType.CENTER_INSIDE
+                scaleType = ImageView.ScaleType.CENTER   // ← ensures perfect centering
                 setOnClickListener { onClick() }
             }
         }
@@ -141,7 +141,7 @@ class DefaultActivity : AppCompatActivity() {
             openOptionsMenu()
         })
 
-        // Remove margin from the last button in the right group
+        // Remove margin from the last button (menu) so it aligns with the edge
         (rightGroup.getChildAt(rightGroup.childCount - 1) as ImageButton).apply {
             val params = layoutParams as LinearLayout.LayoutParams
             params.setMargins(0, 0, 0, 0)
@@ -178,7 +178,7 @@ class DefaultActivity : AppCompatActivity() {
 
         setContentView(root)
 
-        // Fix bottom cut-off
+        // Fix bottom cut-off (system navigation bar)
         ViewCompat.setOnApplyWindowInsetsListener(swipeRefresh) { _, insets ->
             val bottomInset = insets.getInsets(WindowInsetsCompat.Type.systemBars()).bottom
             swipeRefresh.setPadding(0, 0, 0, bottomInset)
@@ -195,6 +195,7 @@ class DefaultActivity : AppCompatActivity() {
         }
 
         pluginManager = PluginManager(this)
+        updateStarIcon(null) // initial state
     }
 
     // ----- Bookmark toggle -----
