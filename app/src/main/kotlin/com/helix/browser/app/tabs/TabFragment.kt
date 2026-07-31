@@ -7,11 +7,9 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
-import android.view.LayoutInflater
-import android.view.MotionEvent
-import android.view.View
-import android.view.ViewGroup
+import android.view.*
 import android.webkit.*
+import android.widget.FrameLayout
 import androidx.core.view.ViewCompat
 import androidx.fragment.app.Fragment
 
@@ -19,6 +17,11 @@ class TabFragment : Fragment() {
 
     lateinit var webView: WebView
     var url: String = ""
+
+    // ---- Fullscreen video ----
+    private var customView: View? = null
+    private var customViewCallback: WebChromeClient.CustomViewCallback? = null
+    private var fullscreenContainer: FrameLayout? = null
 
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
     private val FILE_CHOOSER_REQUEST = 100
@@ -30,6 +33,18 @@ class TabFragment : Fragment() {
             ViewGroup.LayoutParams.MATCH_PARENT
         )
         return webView
+    }
+
+    override fun onBackPressed() {
+    val currentTab = getCurrentTab()
+    if (currentTab?.isFullscreen() == true) {
+        currentTab.exitFullscreen()
+        return
+    }
+    if (currentTab?.canGoBack() == true) {
+        currentTab.goBack()
+    } else {
+        super.onBackPressed()
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -45,12 +60,11 @@ class TabFragment : Fragment() {
         // Hardware acceleration
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
 
-        // Only block parent (ViewPager2/SwipeRefreshLayout) interception while the
-        // page is scrolled down, so pull-to-refresh still works when at the top.
+        // ---- Touch interceptor for pull-to-refresh ----
         webView.setOnTouchListener { _, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
-                    webView.parent?.requestDisallowInterceptTouchEvent(webView.scrollY > 0)
+                    webView.parent?.requestDisallowInterceptTouchEvent(canScrollUp())
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     webView.parent?.requestDisallowInterceptTouchEvent(false)
@@ -69,6 +83,16 @@ class TabFragment : Fragment() {
         // Desktop User Agent
         webView.settings.userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
+        // ---- Fullscreen container ----
+        fullscreenContainer = FrameLayout(requireContext()).apply {
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+            visibility = View.GONE
+            setBackgroundColor(android.graphics.Color.BLACK)
+        }
+
         webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
@@ -83,6 +107,7 @@ class TabFragment : Fragment() {
                 url?.let { (activity as? DefaultActivity)?.saveHistory(it, view?.title ?: it) }
                 (activity as? DefaultActivity)?.updateTabTitle(this@TabFragment, view?.title ?: url ?: "")
                 (activity as? DefaultActivity)?.updateDomain(url)
+                // ---- Inject plugins ----
                 (activity as? DefaultActivity)?.injectPlugins(view, url)
             }
 
@@ -101,15 +126,17 @@ class TabFragment : Fragment() {
                 error: WebResourceError?
             ) {
                 super.onReceivedError(view, request, error)
-                val errorHtml = """
-                    <html><head><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
-                    <body style='text-align:center;padding:40px;font-family:sans-serif;'>
-                    <h2>🌐 Oops!</h2>
-                    <p>Could not load the page.<br>${error?.description}</p>
-                    <p style='color:#888;'>Check your URL or internet connection.</p>
-                    </body></html>
-                """
-                view?.loadDataWithBaseURL(request?.url.toString(), errorHtml, "text/html", "UTF-8", null)
+                if (request?.isForMainFrame == true) {
+                    val errorHtml = """
+                        <html><head><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+                        <body style='text-align:center;padding:40px;font-family:sans-serif;'>
+                        <h2>🌐 Oops!</h2>
+                        <p>Could not load the page.<br>${error?.description}</p>
+                        <p style='color:#888;'>Check your URL or internet connection.</p>
+                        </body></html>
+                    """
+                    view?.loadDataWithBaseURL(request.url.toString(), errorHtml, "text/html", "UTF-8", null)
+                }
             }
         }
 
@@ -117,6 +144,7 @@ class TabFragment : Fragment() {
             override fun onReceivedTitle(view: WebView?, title: String?) {
                 (activity as? DefaultActivity)?.updateTabTitle(this@TabFragment, title ?: "")
             }
+
             override fun onShowFileChooser(
                 webView: WebView?,
                 filePathCallback: ValueCallback<Array<Uri>>?,
@@ -129,6 +157,44 @@ class TabFragment : Fragment() {
                 }
                 startActivityForResult(intent, FILE_CHOOSER_REQUEST)
                 return true
+            }
+
+            // ---- Fullscreen video support ----
+            override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
+                if (customView != null) {
+                    callback?.onCustomViewHidden()
+                    return
+                }
+                customView = view
+                customViewCallback = callback
+
+                // Add the custom view to the fullscreen container
+                view?.let {
+                    fullscreenContainer?.addView(it)
+                    fullscreenContainer?.visibility = View.VISIBLE
+                }
+
+                // Hide the WebView and show fullscreen
+                webView.visibility = View.GONE
+                (activity as? DefaultActivity)?.supportActionBar?.hide()
+                (activity as? DefaultActivity)?.window?.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
+            }
+
+            override fun onHideCustomView() {
+                if (customView == null) return
+
+                customView?.let {
+                    fullscreenContainer?.removeView(it)
+                }
+                customView = null
+                customViewCallback?.onCustomViewHidden()
+                customViewCallback = null
+
+                // Restore WebView
+                webView.visibility = View.VISIBLE
+                fullscreenContainer?.visibility = View.GONE
+                (activity as? DefaultActivity)?.supportActionBar?.show()
+                (activity as? DefaultActivity)?.window?.clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
             }
         }
 
@@ -149,6 +215,9 @@ class TabFragment : Fragment() {
             dm.enqueue(request)
         }
 
+        // ---- Add fullscreen container to the fragment's root view ----
+        (view as? ViewGroup)?.addView(fullscreenContainer)
+
         if (url.isNotEmpty()) webView.loadUrl(url) else webView.loadUrl("https://www.google.com")
     }
 
@@ -162,6 +231,16 @@ class TabFragment : Fragment() {
                 filePathCallback?.onReceiveValue(null)
             }
             filePathCallback = null
+        }
+    }
+
+    // ---- Check if a video is fullscreen ----
+    fun isFullscreen(): Boolean = customView != null
+
+    // ---- Exit fullscreen if active ----
+    fun exitFullscreen() {
+        if (isFullscreen()) {
+            webView.webChromeClient?.onHideCustomView()
         }
     }
 
