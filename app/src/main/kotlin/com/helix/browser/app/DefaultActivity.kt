@@ -25,6 +25,7 @@ class DefaultActivity : AppCompatActivity() {
     private lateinit var domainText: TextView
     private lateinit var tabCountText: TextView
     private lateinit var swipeRefresh: SwipeRefreshLayout
+    private lateinit var starButton: ImageButton
     private val tabTitles = mutableMapOf<TabFragment, String>()
     lateinit var pluginManager: PluginManager
 
@@ -40,7 +41,7 @@ class DefaultActivity : AppCompatActivity() {
             setBackgroundColor(Color.WHITE)
         }
 
-        // ----- Minimal Toolbar (40dp) -----
+        // ----- Toolbar (40dp) -----
         val toolbar = Toolbar(this).apply {
             val height = (40 * resources.displayMetrics.density).toInt()
             layoutParams = LinearLayout.LayoutParams(
@@ -57,34 +58,71 @@ class DefaultActivity : AppCompatActivity() {
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(16, 0, 16, 0)
+            setPadding(8, 0, 8, 0)
         }
 
-        // ----- Back Button -----
+        // ----- LEFT: Home, Back, Forward, Refresh -----
+        val leftGroup = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        }
+
+        // Home
+        val homeBtn = ImageButton(this).apply {
+            setImageResource(R.drawable.ic_home)
+            setBackgroundColor(Color.TRANSPARENT)
+            layoutParams = LinearLayout.LayoutParams(
+                (32 * resources.displayMetrics.density).toInt(),
+                (32 * resources.displayMetrics.density).toInt()
+            )
+            setOnClickListener {
+                loadUrlInCurrentTab("https://www.google.com")
+            }
+        }
+        leftGroup.addView(homeBtn)
+
+        // Back
         val backBtn = ImageButton(this).apply {
             setImageResource(R.drawable.ic_back)
             setBackgroundColor(Color.TRANSPARENT)
             layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
+                (32 * resources.displayMetrics.density).toInt(),
+                (32 * resources.displayMetrics.density).toInt()
             )
             setOnClickListener { getCurrentTab()?.goBack() }
         }
-        toolbarContent.addView(backBtn)
+        leftGroup.addView(backBtn)
 
-        // ----- Forward Button -----
+        // Forward
         val forwardBtn = ImageButton(this).apply {
             setImageResource(R.drawable.ic_forward)
             setBackgroundColor(Color.TRANSPARENT)
             layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
+                (32 * resources.displayMetrics.density).toInt(),
+                (32 * resources.displayMetrics.density).toInt()
             )
             setOnClickListener { getCurrentTab()?.goForward() }
         }
-        toolbarContent.addView(forwardBtn)
+        leftGroup.addView(forwardBtn)
 
-        // ----- Domain (centered) -----
+        // Refresh
+        val refreshBtn = ImageButton(this).apply {
+            setImageResource(R.drawable.ic_refresh)
+            setBackgroundColor(Color.TRANSPARENT)
+            layoutParams = LinearLayout.LayoutParams(
+                (32 * resources.displayMetrics.density).toInt(),
+                (32 * resources.displayMetrics.density).toInt()
+            )
+            setOnClickListener { getCurrentTab()?.reload() }
+        }
+        leftGroup.addView(refreshBtn)
+
+        toolbarContent.addView(leftGroup)
+
+        // ----- CENTER: Domain (search bar) -----
         domainText = TextView(this).apply {
             text = "Helix"
             setTextColor(Color.WHITE)
@@ -99,42 +137,68 @@ class DefaultActivity : AppCompatActivity() {
         }
         toolbarContent.addView(domainText)
 
-        // ----- Refresh Button -----
-        val refreshBtn = ImageButton(this).apply {
-            setImageResource(R.drawable.ic_refresh)
-            setBackgroundColor(Color.TRANSPARENT)
+        // ----- RIGHT: Extensions, Star, Download, Menu -----
+        val rightGroup = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
-            setOnClickListener { getCurrentTab()?.reload() }
         }
-        toolbarContent.addView(refreshBtn)
 
-        // ----- Home Button -----
-        val homeBtn = ImageButton(this).apply {
-            setImageResource(R.drawable.ic_home)
+        // Extensions (placeholder – you can add a real icon later)
+        val extensionsBtn = ImageButton(this).apply {
+            setImageResource(android.R.drawable.ic_menu_agenda) // temporary
             setBackgroundColor(Color.TRANSPARENT)
             layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
+                (32 * resources.displayMetrics.density).toInt(),
+                (32 * resources.displayMetrics.density).toInt()
             )
             setOnClickListener {
-                loadUrlInCurrentTab("https://www.google.com")
+                Toast.makeText(this@DefaultActivity, "Extensions coming soon", Toast.LENGTH_SHORT).show()
             }
         }
-        toolbarContent.addView(homeBtn)
+        rightGroup.addView(extensionsBtn)
 
-        // ----- Tabs count (right) -----
-        tabCountText = TextView(this).apply {
-            text = "0"
-            setTextColor(Color.WHITE)
-            textSize = 13f
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(8, 0, 0, 0)
-            setOnClickListener { showTabSwitcher() }
+        // Star (Bookmark toggle)
+        starButton = ImageButton(this).apply {
+            setImageResource(android.R.drawable.btn_star_big_off)
+            setBackgroundColor(Color.TRANSPARENT)
+            layoutParams = LinearLayout.LayoutParams(
+                (32 * resources.displayMetrics.density).toInt(),
+                (32 * resources.displayMetrics.density).toInt()
+            )
+            setOnClickListener { toggleBookmark() }
         }
-        toolbarContent.addView(tabCountText)
+        rightGroup.addView(starButton)
+
+        // Download (placeholder)
+        val downloadBtn = ImageButton(this).apply {
+            setImageResource(android.R.drawable.stat_sys_download) // temporary
+            setBackgroundColor(Color.TRANSPARENT)
+            layoutParams = LinearLayout.LayoutParams(
+                (32 * resources.displayMetrics.density).toInt(),
+                (32 * resources.displayMetrics.density).toInt()
+            )
+            setOnClickListener {
+                Toast.makeText(this@DefaultActivity, "Download manager", Toast.LENGTH_SHORT).show()
+            }
+        }
+        rightGroup.addView(downloadBtn)
+
+        // Menu (3-dot)
+        val menuBtn = ImageButton(this).apply {
+            setImageResource(android.R.drawable.ic_menu_more)
+            setBackgroundColor(Color.TRANSPARENT)
+            layoutParams = LinearLayout.LayoutParams(
+                (32 * resources.displayMetrics.density).toInt(),
+                (32 * resources.displayMetrics.density).toInt()
+            )
+            setOnClickListener { openOptionsMenu() }
+        }
+        rightGroup.addView(menuBtn)
+
+        toolbarContent.addView(rightGroup)
 
         toolbar.addView(toolbarContent)
         root.addView(toolbar)
@@ -164,7 +228,7 @@ class DefaultActivity : AppCompatActivity() {
 
         setContentView(root)
 
-        // Fix bottom cut-off (system navigation bar)
+        // Fix bottom cut-off
         ViewCompat.setOnApplyWindowInsetsListener(swipeRefresh) { _, insets ->
             val bottomInset = insets.getInsets(WindowInsetsCompat.Type.systemBars()).bottom
             swipeRefresh.setPadding(0, 0, 0, bottomInset)
@@ -173,7 +237,7 @@ class DefaultActivity : AppCompatActivity() {
 
         adapter = TabAdapter(this)
         viewPager.adapter = adapter
-        addNewTab("https://shields.io") // Placeholder – shows Shields.io
+        addNewTab("https://shields.io")
 
         swipeRefresh.setOnRefreshListener {
             getCurrentTab()?.reload()
@@ -182,6 +246,26 @@ class DefaultActivity : AppCompatActivity() {
 
         pluginManager = PluginManager(this)
         updateTabCount()
+    }
+
+    // ----- Bookmark toggle -----
+    private fun toggleBookmark() {
+        val tab = getCurrentTab() ?: return
+        val url = tab.webView.url ?: return
+        val title = tab.webView.title ?: url
+        lifecycleScope.launch {
+            val db = AppDatabase.getInstance(this@DefaultActivity)
+            val existing = db.bookmarkDao().getBookmarkByUrl(url)
+            if (existing != null) {
+                db.bookmarkDao().delete(existing)
+                starButton.setImageResource(android.R.drawable.btn_star_big_off)
+                Toast.makeText(this@DefaultActivity, "Bookmark removed", Toast.LENGTH_SHORT).show()
+            } else {
+                db.bookmarkDao().insert(Bookmark(url = url, title = title))
+                starButton.setImageResource(android.R.drawable.btn_star_big_on)
+                Toast.makeText(this@DefaultActivity, "Bookmark added", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     // ----- Floating search dialog -----
@@ -222,6 +306,22 @@ class DefaultActivity : AppCompatActivity() {
         }
         domainText.text = domain
         updateTabCount()
+        updateStarIcon(url)
+    }
+
+    private fun updateStarIcon(url: String?) {
+        if (url.isNullOrEmpty()) {
+            starButton.setImageResource(android.R.drawable.btn_star_big_off)
+            return
+        }
+        lifecycleScope.launch {
+            val db = AppDatabase.getInstance(this@DefaultActivity)
+            val bookmark = db.bookmarkDao().getBookmarkByUrl(url)
+            starButton.setImageResource(
+                if (bookmark != null) android.R.drawable.btn_star_big_on
+                else android.R.drawable.btn_star_big_off
+            )
+        }
     }
 
     private fun updateTabCount() {
