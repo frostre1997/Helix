@@ -31,6 +31,12 @@ class GekoFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        WebVeiw.settings.javaScriptEnabled = true
+        WebVeiw.settings.loadWithOverviewMode = true
+        WebVeiw.settings.useWideViewPort = true
+
+        WebVeiw.settings.setMediaPlaybackRequiresUserGesture(false)
+        
         val runtime = GeckoRuntime.create(requireContext())
         session = GeckoSession()
         session.open(runtime)
