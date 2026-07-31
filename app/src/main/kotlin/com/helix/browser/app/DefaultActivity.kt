@@ -15,7 +15,7 @@ import androidx.viewpager2.widget.ViewPager2
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.helix.browser.app.data.AppDatabase
-import com.helix.browser.app.data.Bookmark   // ← added import
+import com.helix.browser.app.data.Bookmark
 import com.helix.browser.app.data.History
 import kotlinx.coroutines.launch
 
@@ -41,7 +41,7 @@ class DefaultActivity : AppCompatActivity() {
             setBackgroundColor(Color.WHITE)
         }
 
-        // ----- Toolbar (40dp) -----
+        // ----- Toolbar (40dp height) -----
         val toolbar = Toolbar(this).apply {
             val height = (40 * resources.displayMetrics.density).toInt()
             layoutParams = LinearLayout.LayoutParams(
@@ -58,10 +58,25 @@ class DefaultActivity : AppCompatActivity() {
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(8, 0, 8, 0)
+            setPadding(8, 0, 8, 0)  // ← edge padding (left/right)
         }
 
-        // ----- LEFT: Home, Back, Forward, Refresh -----
+        // ----- Helper to create icon buttons -----
+        fun createIconButton(drawableRes: Int, onClick: () -> Unit): ImageButton {
+            val dp = resources.displayMetrics.density
+            return ImageButton(this).apply {
+                setImageResource(drawableRes)
+                setBackgroundColor(Color.TRANSPARENT)
+                val size = (24 * dp).toInt()   // ← 24dp icon size
+                val params = LinearLayout.LayoutParams(size, size)
+                params.setMargins(0, 0, (4 * dp).toInt(), 0) // ← 4dp spacing between icons
+                layoutParams = params
+                scaleType = ImageView.ScaleType.CENTER_INSIDE
+                setOnClickListener { onClick() }
+            }
+        }
+
+        // ----- LEFT GROUP: Home, Back, Forward, Refresh -----
         val leftGroup = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(
@@ -70,59 +85,22 @@ class DefaultActivity : AppCompatActivity() {
             )
         }
 
-        // Home
-        val homeBtn = ImageButton(this).apply {
-            setImageResource(R.drawable.ic_home)
-            setBackgroundColor(Color.TRANSPARENT)
-            layoutParams = LinearLayout.LayoutParams(
-                (32 * resources.displayMetrics.density).toInt(),
-                (32 * resources.displayMetrics.density).toInt()
-            )
-            setOnClickListener {
-                loadUrlInCurrentTab("https://www.google.com")
-            }
-        }
-        leftGroup.addView(homeBtn)
-
-        // Back
-        val backBtn = ImageButton(this).apply {
-            setImageResource(R.drawable.ic_back)
-            setBackgroundColor(Color.TRANSPARENT)
-            layoutParams = LinearLayout.LayoutParams(
-                (32 * resources.displayMetrics.density).toInt(),
-                (32 * resources.displayMetrics.density).toInt()
-            )
-            setOnClickListener { getCurrentTab()?.goBack() }
-        }
-        leftGroup.addView(backBtn)
-
-        // Forward
-        val forwardBtn = ImageButton(this).apply {
-            setImageResource(R.drawable.ic_forward)
-            setBackgroundColor(Color.TRANSPARENT)
-            layoutParams = LinearLayout.LayoutParams(
-                (32 * resources.displayMetrics.density).toInt(),
-                (32 * resources.displayMetrics.density).toInt()
-            )
-            setOnClickListener { getCurrentTab()?.goForward() }
-        }
-        leftGroup.addView(forwardBtn)
-
-        // Refresh
-        val refreshBtn = ImageButton(this).apply {
-            setImageResource(R.drawable.ic_refresh)
-            setBackgroundColor(Color.TRANSPARENT)
-            layoutParams = LinearLayout.LayoutParams(
-                (32 * resources.displayMetrics.density).toInt(),
-                (32 * resources.displayMetrics.density).toInt()
-            )
-            setOnClickListener { getCurrentTab()?.reload() }
-        }
-        leftGroup.addView(refreshBtn)
+        leftGroup.addView(createIconButton(R.drawable.ic_home) {
+            loadUrlInCurrentTab("https://www.google.com")
+        })
+        leftGroup.addView(createIconButton(R.drawable.ic_back) {
+            getCurrentTab()?.goBack()
+        })
+        leftGroup.addView(createIconButton(R.drawable.ic_forward) {
+            getCurrentTab()?.goForward()
+        })
+        leftGroup.addView(createIconButton(R.drawable.ic_refresh) {
+            getCurrentTab()?.reload()
+        })
 
         toolbarContent.addView(leftGroup)
 
-        // ----- CENTER: Domain -----
+        // ----- CENTER: Domain (search bar) -----
         domainText = TextView(this).apply {
             text = "Helix"
             setTextColor(Color.WHITE)
@@ -137,7 +115,7 @@ class DefaultActivity : AppCompatActivity() {
         }
         toolbarContent.addView(domainText)
 
-        // ----- RIGHT: Extensions, Star, Download, Menu -----
+        // ----- RIGHT GROUP: Extensions, Star, Download, Menu -----
         val rightGroup = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(
@@ -146,57 +124,29 @@ class DefaultActivity : AppCompatActivity() {
             )
         }
 
-        // Extensions
-        val extensionsBtn = ImageButton(this).apply {
-            setImageResource(R.drawable.ic_extension)   // fixed
-            setBackgroundColor(Color.TRANSPARENT)
-            layoutParams = LinearLayout.LayoutParams(
-                (32 * resources.displayMetrics.density).toInt(),
-                (32 * resources.displayMetrics.density).toInt()
-            )
-            setOnClickListener {
-                Toast.makeText(this@DefaultActivity, "Extensions coming soon", Toast.LENGTH_SHORT).show()
-            }
-        }
-        rightGroup.addView(extensionsBtn)
+        rightGroup.addView(createIconButton(R.drawable.ic_extension) {
+            Toast.makeText(this@DefaultActivity, "Extensions coming soon", Toast.LENGTH_SHORT).show()
+        })
 
-        // Star (Bookmark toggle)
-        starButton = ImageButton(this).apply {
-            setImageResource(R.drawable.ic_star)   // fixed
-            setBackgroundColor(Color.TRANSPARENT)
-            layoutParams = LinearLayout.LayoutParams(
-                (32 * resources.displayMetrics.density).toInt(),
-                (32 * resources.displayMetrics.density).toInt()
-            )
-            setOnClickListener { toggleBookmark() }
+        starButton = createIconButton(R.drawable.ic_star) {
+            toggleBookmark()
         }
         rightGroup.addView(starButton)
 
-        // Download
-        val downloadBtn = ImageButton(this).apply {
-            setImageResource(R.drawable.ic_download)   // fixed
-            setBackgroundColor(Color.TRANSPARENT)
-            layoutParams = LinearLayout.LayoutParams(
-                (32 * resources.displayMetrics.density).toInt(),
-                (32 * resources.displayMetrics.density).toInt()
-            )
-            setOnClickListener {
-                Toast.makeText(this@DefaultActivity, "Download manager", Toast.LENGTH_SHORT).show()
-            }
-        }
-        rightGroup.addView(downloadBtn)
+        rightGroup.addView(createIconButton(R.drawable.ic_download) {
+            Toast.makeText(this@DefaultActivity, "Download manager", Toast.LENGTH_SHORT).show()
+        })
 
-        // Menu
-        val menuBtn = ImageButton(this).apply {
-            setImageResource(R.drawable.ic_menu)   // fixed
-            setBackgroundColor(Color.TRANSPARENT)
-            layoutParams = LinearLayout.LayoutParams(
-                (32 * resources.displayMetrics.density).toInt(),
-                (32 * resources.displayMetrics.density).toInt()
-            )
-            setOnClickListener { openOptionsMenu() }
+        rightGroup.addView(createIconButton(R.drawable.ic_menu) {
+            openOptionsMenu()
+        })
+
+        // Remove margin from the last button in the right group
+        (rightGroup.getChildAt(rightGroup.childCount - 1) as ImageButton).apply {
+            val params = layoutParams as LinearLayout.LayoutParams
+            params.setMargins(0, 0, 0, 0)
+            layoutParams = params
         }
-        rightGroup.addView(menuBtn)
 
         toolbarContent.addView(rightGroup)
 
@@ -245,7 +195,6 @@ class DefaultActivity : AppCompatActivity() {
         }
 
         pluginManager = PluginManager(this)
-        updateTabCount()
     }
 
     // ----- Bookmark toggle -----
@@ -258,11 +207,11 @@ class DefaultActivity : AppCompatActivity() {
             val existing = db.bookmarkDao().getBookmarkByUrl(url)
             if (existing != null) {
                 db.bookmarkDao().delete(existing)
-                starButton.setColorFilter(Color.GRAY)   // unfilled
+                starButton.setColorFilter(Color.GRAY)
                 Toast.makeText(this@DefaultActivity, "Bookmark removed", Toast.LENGTH_SHORT).show()
             } else {
                 db.bookmarkDao().insert(Bookmark(url = url, title = title))
-                starButton.setColorFilter(Color.YELLOW) // filled
+                starButton.setColorFilter(Color.YELLOW)
                 Toast.makeText(this@DefaultActivity, "Bookmark added", Toast.LENGTH_SHORT).show()
             }
         }
@@ -305,7 +254,6 @@ class DefaultActivity : AppCompatActivity() {
             url
         }
         domainText.text = domain
-        updateTabCount()
         updateStarIcon(url)
     }
 
@@ -319,10 +267,6 @@ class DefaultActivity : AppCompatActivity() {
             val bookmark = db.bookmarkDao().getBookmarkByUrl(url)
             starButton.setColorFilter(if (bookmark != null) Color.YELLOW else Color.GRAY)
         }
-    }
-
-    private fun updateTabCount() {
-        // We removed tabCountText; you can add a badge or use menu item
     }
 
     // ----- Menu (3-dot) -----
@@ -360,7 +304,7 @@ class DefaultActivity : AppCompatActivity() {
         }
     }
 
-    // ----- Tab management (rest unchanged) -----
+    // ----- Tab management -----
     fun addNewTab(url: String = "https://www.google.com") {
         val fragment = TabFragment().apply { this.url = url }
         adapter.addTab(fragment)
