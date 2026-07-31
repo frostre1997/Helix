@@ -4,6 +4,7 @@ import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.content.Context
 import android.graphics.Color
+import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
@@ -13,11 +14,9 @@ import android.view.*
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.*
-import androidx.core.view.ViewCompat
-import androidx.lifecycle.lifecycleScope
+import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONArray
@@ -28,6 +27,7 @@ class FloatingSearchBar(
 ) {
 
     private val overlay: FrameLayout
+    private val card: LinearLayout
     private val searchInput: EditText
     private val suggestionsList: RecyclerView
     private val suggestionAdapter: SearchSuggestionAdapter
@@ -43,45 +43,58 @@ class FloatingSearchBar(
             )
             setBackgroundColor(Color.parseColor("#CC000000"))
             visibility = View.GONE
-            setOnClickListener { hide() } // tap outside to close
+            setOnTouchListener { _, event ->
+                if (event.action == MotionEvent.ACTION_UP) {
+                    val cardRect = android.graphics.Rect()
+                    card.getGlobalVisibleRect(cardRect)
+                    val touchX = event.rawX.toInt()
+                    val touchY = event.rawY.toInt()
+                    if (!cardRect.contains(touchX, touchY)) {
+                        hide()
+                    }
+                }
+                true
+            }
         }
 
-        // ---- Centered card ----
-        val card = LinearLayout(context).apply {
+        // ---- Centered card (narrower, like before) ----
+        card = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT,   // <- WRAP_CONTENT = narrower
                 ViewGroup.LayoutParams.WRAP_CONTENT
             ).apply {
                 gravity = Gravity.CENTER
-                setMargins(
-                    (32 * context.resources.displayMetrics.density).toInt(),
-                    0,
-                    (32 * context.resources.displayMetrics.density).toInt(),
-                    0
-                )
+                // Increase left/right margins to keep it centered but narrower
+                val margin = (48 * context.resources.displayMetrics.density).toInt()
+                setMargins(margin, 0, margin, 0)
             }
             setBackgroundColor(Color.parseColor("#1E1E1E"))
             elevation = 16f
-            setPadding(
-                (20 * context.resources.displayMetrics.density).toInt(),
-                (20 * context.resources.displayMetrics.density).toInt(),
-                (20 * context.resources.displayMetrics.density).toInt(),
-                (20 * context.resources.displayMetrics.density).toInt()
-            )
+            val padding = (20 * context.resources.displayMetrics.density).toInt()
+            setPadding(padding, padding, padding, padding)
+            setOnTouchListener { _, _ -> false }
         }
 
-        // ---- Search input ----
+        // ---- Search input with icon ----
         searchInput = EditText(context).apply {
             hint = "Search or enter URL"
             setHintTextColor(Color.parseColor("#888888"))
             setTextColor(Color.WHITE)
             setBackgroundColor(Color.TRANSPARENT)
-            setPadding(16, 16, 16, 16)
+
+            textSize = 20f
+            val inputPadding = (16 * context.resources.displayMetrics.density).toInt()
+            setPadding(inputPadding, inputPadding, inputPadding, inputPadding)
+
+            val icon: Drawable? = ContextCompat.getDrawable(context, R.drawable.ic_search)
+            icon?.setTint(Color.WHITE)
+            setCompoundDrawablesWithIntrinsicBounds(icon, null, null, null)
+            compoundDrawablePadding = (16 * context.resources.displayMetrics.density).toInt()
+
             inputType = android.text.InputType.TYPE_TEXT_VARIATION_URI
             imeOptions = EditorInfo.IME_ACTION_GO
             setSingleLine(true)
-            // Prevent card click from closing overlay
             setOnTouchListener { _, _ -> false }
         }
         card.addView(searchInput)
@@ -142,7 +155,6 @@ class FloatingSearchBar(
         searchInput.setSelection(searchInput.text.length)
         overlay.visibility = View.VISIBLE
         isShowing = true
-        // Fade in
         overlay.alpha = 0f
         overlay.animate().alpha(1f).setDuration(200).start()
         searchInput.requestFocus()
@@ -153,7 +165,6 @@ class FloatingSearchBar(
     // ----- Hide overlay -----
     fun hide() {
         if (!isShowing) return
-        // Fade out
         overlay.animate().alpha(0f).setDuration(200).setListener(object : AnimatorListenerAdapter() {
             override fun onAnimationEnd(animation: Animator) {
                 overlay.visibility = View.GONE
@@ -167,16 +178,19 @@ class FloatingSearchBar(
         }).start()
     }
 
-    // ----- Toggle visibility -----
+    // ----- Toggle -----
     fun toggle(initialText: String = "") {
         if (isShowing) hide() else show(initialText)
     }
 
+    // ----- Get root view -----
+    fun getView(): View = overlay
+
+    // ----- Check if showing -----
+    fun isShowing(): Boolean = isShowing
+
     // ----- Smart suggestions -----
     private fun fetchSuggestions(query: String) {
-        // Use lifecycleScope – we need to pass a lifecycle owner. We'll use a callback or get from context.
-        // Since we don't have a lifecycle owner here, we'll use a handler or pass one in.
-        // Quick fix: use a Handler to avoid blocking.
         Handler(Looper.getMainLooper()).post {
             try {
                 val url = "https://suggestqueries.google.com/complete/search?client=firefox&q=${Uri.encode(query)}"
@@ -198,12 +212,6 @@ class FloatingSearchBar(
             }
         }
     }
-
-    // ----- Get the root view to add to activity -----
-    fun getView(): View = overlay
-
-    // ----- Check if showing -----
-    fun isShowing(): Boolean = isShowing
 
     // ----- Clean up -----
     fun destroy() {
