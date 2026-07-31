@@ -148,7 +148,7 @@ class DefaultActivity : AppCompatActivity() {
 
         // Extensions (placeholder – you can add a real icon later)
         val extensionsBtn = ImageButton(this).apply {
-            setImageResource(android.R.drawable.ic_menu_agenda) // temporary
+            setImageResource(android.R.drawable.ic_extension)
             setBackgroundColor(Color.TRANSPARENT)
             layoutParams = LinearLayout.LayoutParams(
                 (32 * resources.displayMetrics.density).toInt(),
@@ -162,7 +162,7 @@ class DefaultActivity : AppCompatActivity() {
 
         // Star (Bookmark toggle)
         starButton = ImageButton(this).apply {
-            setImageResource(android.R.drawable.btn_star_big_off)
+            setImageResource(android.R.drawable.ic_star)
             setBackgroundColor(Color.TRANSPARENT)
             layoutParams = LinearLayout.LayoutParams(
                 (32 * resources.displayMetrics.density).toInt(),
@@ -174,7 +174,7 @@ class DefaultActivity : AppCompatActivity() {
 
         // Download (placeholder)
         val downloadBtn = ImageButton(this).apply {
-            setImageResource(android.R.drawable.stat_sys_download) // temporary
+            setImageResource(android.R.drawable.ic_download) 
             setBackgroundColor(Color.TRANSPARENT)
             layoutParams = LinearLayout.LayoutParams(
                 (32 * resources.displayMetrics.density).toInt(),
@@ -188,7 +188,7 @@ class DefaultActivity : AppCompatActivity() {
 
         // Menu (3-dot)
         val menuBtn = ImageButton(this).apply {
-            setImageResource(android.R.drawable.ic_menu_more)
+            setImageResource(android.R.drawable.ic_menu)
             setBackgroundColor(Color.TRANSPARENT)
             layoutParams = LinearLayout.LayoutParams(
                 (32 * resources.displayMetrics.density).toInt(),
