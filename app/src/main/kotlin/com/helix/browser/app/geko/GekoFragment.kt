@@ -45,7 +45,7 @@ class GekoFragment : Fragment() {
         session.setProgressDelegate(object : GeckoSession.ProgressDelegate {
             override fun onPageStop(session: GeckoSession, success: Boolean) {
                 if (!isBackForward) {
-                    val currentUrl = session.uri
+                    val currentUrl = session.getUri()   // ← FIXED: .getUri() not .uri
                     if (currentUrl != null && (history.isEmpty() || history.last() != currentUrl)) {
                         // Remove forward history if we navigated back
                         if (currentIndex < history.size - 1) {
