@@ -12,6 +12,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.*
+import androidx.core.view.ViewCompat
 import androidx.fragment.app.Fragment
 
 class TabFragment : Fragment() {
@@ -44,11 +45,12 @@ class TabFragment : Fragment() {
         // Hardware acceleration
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
 
-        // Fix touch interference with ViewPager2
+        // Only block parent (ViewPager2/SwipeRefreshLayout) interception while the
+        // page is scrolled down, so pull-to-refresh still works when at the top.
         webView.setOnTouchListener { _, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
-                    webView.parent?.requestDisallowInterceptTouchEvent(true)
+                    webView.parent?.requestDisallowInterceptTouchEvent(webView.scrollY > 0)
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     webView.parent?.requestDisallowInterceptTouchEvent(false)
@@ -70,7 +72,6 @@ class TabFragment : Fragment() {
         webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
-                view?.scrollTo(0, 0)
                 // Force viewport to device width
                 view?.evaluateJavascript(
                     "var meta = document.createElement('meta');" +
@@ -168,5 +169,6 @@ class TabFragment : Fragment() {
     fun goBack(): Boolean { if (webView.canGoBack()) { webView.goBack(); return true }; return false }
     fun goForward(): Boolean { if (webView.canGoForward()) { webView.goForward(); return true }; return false }
     fun canGoBack() = webView.canGoBack()
+    fun canScrollUp() = webView.scrollY > 0 || ViewCompat.canScrollVertically(webView, -1)
     fun reload() = webView.reload()
 }

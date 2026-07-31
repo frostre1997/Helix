@@ -149,7 +149,7 @@ class DefaultActivity : AppCompatActivity() {
             setColorSchemeResources(android.R.color.holo_blue_bright)
         }
         swipeRefresh.setOnChildScrollUpCallback { _, _ ->
-            getCurrentTab()?.webView?.scrollY == 0
+            getCurrentTab()?.canScrollUp() == true
         }
 
         viewPager = ViewPager2(this).apply {
