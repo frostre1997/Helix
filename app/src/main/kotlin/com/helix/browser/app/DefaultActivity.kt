@@ -1,32 +1,22 @@
 package com.helix.browser.app
 
-import android.content.Context
 import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
 import android.view.*
-import android.view.inputmethod.EditorInfo          // ← added
-import android.view.inputmethod.InputMethodManager
 import android.webkit.WebView
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
-import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
-import androidx.lifecycle.lifecycleScope
-import androidx.viewpager2.widget.ViewPager2
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
-import android.text.Editable
-import android.text.TextWatcher
+import androidx.lifecycle.lifecycleScope
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+import androidx.viewpager2.widget.ViewPager2
 import com.helix.browser.app.data.AppDatabase
 import com.helix.browser.app.data.Bookmark
 import com.helix.browser.app.data.History
 import kotlinx.coroutines.launch
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import org.json.JSONArray
 
 class DefaultActivity : AppCompatActivity() {
 
@@ -35,18 +25,14 @@ class DefaultActivity : AppCompatActivity() {
     private lateinit var domainText: TextView
     private lateinit var swipeRefresh: SwipeRefreshLayout
     private lateinit var starButton: ImageButton
-    private lateinit var searchOverlay: View
-    private lateinit var searchInput: EditText
-    private lateinit var suggestionsList: RecyclerView
-    private lateinit var suggestionAdapter: SearchSuggestionAdapter
-    private val suggestionClient = OkHttpClient()
+    private lateinit var floatingSearchBar: FloatingSearchBar
     private val tabTitles = mutableMapOf<TabFragment, String>()
     lateinit var pluginManager: PluginManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // ----- Root container -----
+        // ----- Root layout -----
         val root = FrameLayout(this).apply {
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -55,7 +41,7 @@ class DefaultActivity : AppCompatActivity() {
             setBackgroundColor(Color.WHITE)
         }
 
-        // ----- Main content -----
+        // ----- Main content (vertical) -----
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = FrameLayout.LayoutParams(
@@ -120,7 +106,7 @@ class DefaultActivity : AppCompatActivity() {
         })
         toolbarContent.addView(leftGroup)
 
-        // CENTER: Domain
+        // CENTER: Domain (tap to open search)
         domainText = TextView(this).apply {
             text = "Helix"
             setTextColor(Color.WHITE)
@@ -131,7 +117,10 @@ class DefaultActivity : AppCompatActivity() {
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 1f
             )
-            setOnClickListener { showSearchOverlay() }
+            setOnClickListener {
+                val currentUrl = getCurrentTab()?.webView?.url ?: ""
+                floatingSearchBar.show(currentUrl)
+            }
         }
         toolbarContent.addView(domainText)
 
@@ -164,7 +153,7 @@ class DefaultActivity : AppCompatActivity() {
         toolbar.addView(toolbarContent)
         content.addView(toolbar)
 
-        // SwipeRefresh + ViewPager
+        // ----- SwipeRefresh + ViewPager -----
         swipeRefresh = SwipeRefreshLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -189,62 +178,12 @@ class DefaultActivity : AppCompatActivity() {
 
         root.addView(content)
 
-        // ----- Search Overlay -----
-        searchOverlay = layoutInflater.inflate(R.layout.search_overlay, root, false)
-        searchInput = searchOverlay.findViewById(R.id.searchInput)
-        suggestionsList = searchOverlay.findViewById(R.id.suggestionsList)
-        suggestionsList.layoutManager = LinearLayoutManager(this)
-
-        suggestionAdapter = SearchSuggestionAdapter(emptyList()) { suggestion ->
-            searchInput.setText(suggestion)
-            searchInput.setSelection(suggestion.length)
-            loadUrlInCurrentTab(suggestion)
-            hideSearchOverlay()
+        // ----- Floating Search Bar -----
+        floatingSearchBar = FloatingSearchBar(this) { query ->
+            loadUrlInCurrentTab(query)
         }
-        suggestionsList.adapter = suggestionAdapter
+        root.addView(floatingSearchBar.getView())
 
-        searchInput.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-            override fun afterTextChanged(s: Editable?) {
-                val query = s.toString()
-                if (query.length >= 2) {
-                    fetchSuggestions(query)
-                } else {
-                    suggestionAdapter.updateSuggestions(emptyList())
-                }
-            }
-        })
-
-        searchOverlay.visibility = View.GONE
-
-        // Handle Enter key
-        searchInput.setOnEditorActionListener { _, actionId, _ ->
-            if (actionId == EditorInfo.IME_ACTION_GO) {
-                val query = searchInput.text.toString()
-                if (query.isNotEmpty()) {
-                    loadUrlInCurrentTab(query)
-                    hideSearchOverlay()
-                }
-                true
-            } else false
-        }
-
-        // Close on outside tap
-        searchOverlay.setOnTouchListener { _, event ->
-            if (event.action == MotionEvent.ACTION_DOWN) {
-                val inputRect = android.graphics.Rect()
-                searchInput.getGlobalVisibleRect(inputRect)
-                val touchX = event.rawX.toInt()
-                val touchY = event.rawY.toInt()
-                if (!inputRect.contains(touchX, touchY)) {
-                    hideSearchOverlay()
-                }
-                true
-            } else false
-        }
-
-        root.addView(searchOverlay)
         setContentView(root)
 
         // Bottom insets
@@ -265,48 +204,6 @@ class DefaultActivity : AppCompatActivity() {
 
         pluginManager = PluginManager(this)
         updateStarIcon(null)
-    }
-
-    // ----- Smart suggestions -----
-    private fun fetchSuggestions(query: String) {
-        lifecycleScope.launch {
-            try {
-                val url = "https://suggestqueries.google.com/complete/search?client=firefox&q=${Uri.encode(query)}"
-                val request = Request.Builder().url(url).build()
-                val response = suggestionClient.newCall(request).execute()
-                val json = response.body?.string()
-                if (json != null) {
-                    val array = JSONArray(json)
-                    val suggestionsArray = array.getJSONArray(1)
-                    val suggestions = mutableListOf<String>()
-                    for (i in 0 until suggestionsArray.length()) {
-                        suggestions.add(suggestionsArray.getString(i))
-                    }
-                    suggestionAdapter.updateSuggestions(suggestions)
-                }
-            } catch (_: Exception) {
-                // Ignore network errors
-            }
-        }
-    }
-
-    // ----- Overlay methods -----
-    private fun showSearchOverlay() {
-        val currentUrl = getCurrentTab()?.webView?.url ?: ""
-        searchInput.setText(currentUrl)
-        searchInput.setSelection(searchInput.text.length)
-        searchOverlay.visibility = View.VISIBLE
-        searchInput.requestFocus()
-        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-        imm.showSoftInput(searchInput, InputMethodManager.SHOW_IMPLICIT)
-    }
-
-    private fun hideSearchOverlay() {
-        searchOverlay.visibility = View.GONE
-        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-        imm.hideSoftInputFromWindow(searchInput.windowToken, 0)
-        searchInput.clearFocus()
-        suggestionAdapter.updateSuggestions(emptyList())
     }
 
     // ----- Bookmark toggle -----
@@ -385,8 +282,8 @@ class DefaultActivity : AppCompatActivity() {
     }
 
     override fun onBackPressed() {
-        if (searchOverlay.visibility == View.VISIBLE) {
-            hideSearchOverlay()
+        if (floatingSearchBar.isShowing()) {
+            floatingSearchBar.hide()
             return
         }
         val currentTab = getCurrentTab()
