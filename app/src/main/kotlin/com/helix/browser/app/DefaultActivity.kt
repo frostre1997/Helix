@@ -15,6 +15,7 @@ import androidx.viewpager2.widget.ViewPager2
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.helix.browser.app.data.AppDatabase
+import com.helix.browser.app.data.Bookmark   // ← added import
 import com.helix.browser.app.data.History
 import kotlinx.coroutines.launch
 
@@ -23,7 +24,6 @@ class DefaultActivity : AppCompatActivity() {
     private lateinit var viewPager: ViewPager2
     private lateinit var adapter: TabAdapter
     private lateinit var domainText: TextView
-    private lateinit var tabCountText: TextView
     private lateinit var swipeRefresh: SwipeRefreshLayout
     private lateinit var starButton: ImageButton
     private val tabTitles = mutableMapOf<TabFragment, String>()
@@ -122,7 +122,7 @@ class DefaultActivity : AppCompatActivity() {
 
         toolbarContent.addView(leftGroup)
 
-        // ----- CENTER: Domain (search bar) -----
+        // ----- CENTER: Domain -----
         domainText = TextView(this).apply {
             text = "Helix"
             setTextColor(Color.WHITE)
@@ -146,9 +146,9 @@ class DefaultActivity : AppCompatActivity() {
             )
         }
 
-        // Extensions (placeholder – you can add a real icon later)
+        // Extensions
         val extensionsBtn = ImageButton(this).apply {
-            setImageResource(android.R.drawable.ic_extension)
+            setImageResource(R.drawable.ic_extension)   // fixed
             setBackgroundColor(Color.TRANSPARENT)
             layoutParams = LinearLayout.LayoutParams(
                 (32 * resources.displayMetrics.density).toInt(),
@@ -162,7 +162,7 @@ class DefaultActivity : AppCompatActivity() {
 
         // Star (Bookmark toggle)
         starButton = ImageButton(this).apply {
-            setImageResource(android.R.drawable.ic_star)
+            setImageResource(R.drawable.ic_star)   // fixed
             setBackgroundColor(Color.TRANSPARENT)
             layoutParams = LinearLayout.LayoutParams(
                 (32 * resources.displayMetrics.density).toInt(),
@@ -172,9 +172,9 @@ class DefaultActivity : AppCompatActivity() {
         }
         rightGroup.addView(starButton)
 
-        // Download (placeholder)
+        // Download
         val downloadBtn = ImageButton(this).apply {
-            setImageResource(android.R.drawable.ic_download) 
+            setImageResource(R.drawable.ic_download)   // fixed
             setBackgroundColor(Color.TRANSPARENT)
             layoutParams = LinearLayout.LayoutParams(
                 (32 * resources.displayMetrics.density).toInt(),
@@ -186,9 +186,9 @@ class DefaultActivity : AppCompatActivity() {
         }
         rightGroup.addView(downloadBtn)
 
-        // Menu (3-dot)
+        // Menu
         val menuBtn = ImageButton(this).apply {
-            setImageResource(android.R.drawable.ic_menu)
+            setImageResource(R.drawable.ic_menu)   // fixed
             setBackgroundColor(Color.TRANSPARENT)
             layoutParams = LinearLayout.LayoutParams(
                 (32 * resources.displayMetrics.density).toInt(),
@@ -258,11 +258,11 @@ class DefaultActivity : AppCompatActivity() {
             val existing = db.bookmarkDao().getBookmarkByUrl(url)
             if (existing != null) {
                 db.bookmarkDao().delete(existing)
-                starButton.setImageResource(android.R.drawable.btn_star_big_off)
+                starButton.setColorFilter(Color.GRAY)   // unfilled
                 Toast.makeText(this@DefaultActivity, "Bookmark removed", Toast.LENGTH_SHORT).show()
             } else {
                 db.bookmarkDao().insert(Bookmark(url = url, title = title))
-                starButton.setImageResource(android.R.drawable.btn_star_big_on)
+                starButton.setColorFilter(Color.YELLOW) // filled
                 Toast.makeText(this@DefaultActivity, "Bookmark added", Toast.LENGTH_SHORT).show()
             }
         }
@@ -311,21 +311,18 @@ class DefaultActivity : AppCompatActivity() {
 
     private fun updateStarIcon(url: String?) {
         if (url.isNullOrEmpty()) {
-            starButton.setImageResource(android.R.drawable.btn_star_big_off)
+            starButton.setColorFilter(Color.GRAY)
             return
         }
         lifecycleScope.launch {
             val db = AppDatabase.getInstance(this@DefaultActivity)
             val bookmark = db.bookmarkDao().getBookmarkByUrl(url)
-            starButton.setImageResource(
-                if (bookmark != null) android.R.drawable.btn_star_big_on
-                else android.R.drawable.btn_star_big_off
-            )
+            starButton.setColorFilter(if (bookmark != null) Color.YELLOW else Color.GRAY)
         }
     }
 
     private fun updateTabCount() {
-        tabCountText.text = adapter.getTabCount().toString()
+        // We removed tabCountText; you can add a badge or use menu item
     }
 
     // ----- Menu (3-dot) -----
@@ -363,12 +360,11 @@ class DefaultActivity : AppCompatActivity() {
         }
     }
 
-    // ----- Tab management -----
+    // ----- Tab management (rest unchanged) -----
     fun addNewTab(url: String = "https://www.google.com") {
         val fragment = TabFragment().apply { this.url = url }
         adapter.addTab(fragment)
         viewPager.setCurrentItem(adapter.getTabCount() - 1, true)
-        updateTabCount()
         invalidateOptionsMenu()
     }
 
@@ -381,7 +377,6 @@ class DefaultActivity : AppCompatActivity() {
         if (position >= adapter.getTabCount()) {
             viewPager.setCurrentItem(adapter.getTabCount() - 1, false)
         }
-        updateTabCount()
         invalidateOptionsMenu()
     }
 
