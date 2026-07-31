@@ -83,6 +83,7 @@ class TabFragment : Fragment() {
                 url?.let { (activity as? DefaultActivity)?.saveHistory(it, view?.title ?: it) }
                 (activity as? DefaultActivity)?.updateTabTitle(this@TabFragment, view?.title ?: url ?: "")
                 (activity as? DefaultActivity)?.updateDomain(url)
+                (activity as? DefaultActivity)?.injectPlugins(view, url)
             }
 
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
