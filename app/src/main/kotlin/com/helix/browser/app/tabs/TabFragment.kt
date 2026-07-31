@@ -1,5 +1,6 @@
 package com.helix.browser.app
 
+import android.content.res.Configuration
 import android.app.Activity
 import android.app.DownloadManager
 import android.content.Context
@@ -80,8 +81,13 @@ class TabFragment : Fragment() {
         webView.isHorizontalScrollBarEnabled = true
         webView.overScrollMode = WebView.OVER_SCROLL_ALWAYS
 
-        // Desktop User Agent
-        webView.settings.userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        // ---- Automatic User Agent (tablet vs phone) ----
+        val isTablet = resources.configuration.screenLayout and Configuration.SCREENLAYOUT_SIZE_MASK >= Configuration.SCREENLAYOUT_SIZE_LARGE
+        webView.settings.userAgentString = if (isTablet) {
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        } else {
+            webView.settings.userAgentString // default system UA (mobile)
+        }
 
         // ---- Fullscreen container ----
         fullscreenContainer = FrameLayout(requireContext()).apply {
