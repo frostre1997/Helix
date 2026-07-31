@@ -1,10 +1,10 @@
 package com.helix.browser.app
 
-import android.content.res.Configuration
 import android.app.Activity
 import android.app.DownloadManager
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
 import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
@@ -36,18 +36,6 @@ class TabFragment : Fragment() {
         return webView
     }
 
-    override fun onBackPressed() {
-    val currentTab = getCurrentTab()
-    if (currentTab?.isFullscreen() == true) {
-        currentTab.exitFullscreen()
-        return
-    }
-    if (currentTab?.canGoBack() == true) {
-        currentTab.goBack()
-    } else {
-        super.onBackPressed()
-    }
-
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
@@ -55,13 +43,21 @@ class TabFragment : Fragment() {
         webView.settings.loadWithOverviewMode = true
         webView.settings.useWideViewPort = true
 
+        // ---- Automatic User Agent ----
+        val isTablet = resources.configuration.screenLayout and Configuration.SCREENLAYOUT_SIZE_MASK >= Configuration.SCREENLAYOUT_SIZE_LARGE
+        webView.settings.userAgentString = if (isTablet) {
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        } else {
+            webView.settings.userAgentString
+        }
+
         // ---- Enable autoplay ----
         webView.settings.setMediaPlaybackRequiresUserGesture(false)
 
         // Hardware acceleration
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
 
-        // ---- Touch interceptor for pull-to-refresh ----
+        // ---- Touch interceptor ----
         webView.setOnTouchListener { _, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> {
@@ -81,14 +77,6 @@ class TabFragment : Fragment() {
         webView.isHorizontalScrollBarEnabled = true
         webView.overScrollMode = WebView.OVER_SCROLL_ALWAYS
 
-        // ---- Automatic User Agent (tablet vs phone) ----
-        val isTablet = resources.configuration.screenLayout and Configuration.SCREENLAYOUT_SIZE_MASK >= Configuration.SCREENLAYOUT_SIZE_LARGE
-        webView.settings.userAgentString = if (isTablet) {
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-        } else {
-            webView.settings.userAgentString // default system UA (mobile)
-        }
-
         // ---- Fullscreen container ----
         fullscreenContainer = FrameLayout(requireContext()).apply {
             layoutParams = ViewGroup.LayoutParams(
@@ -102,7 +90,6 @@ class TabFragment : Fragment() {
         webView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
-                // Force viewport to device width
                 view?.evaluateJavascript(
                     "var meta = document.createElement('meta');" +
                     "meta.name = 'viewport';" +
@@ -165,7 +152,6 @@ class TabFragment : Fragment() {
                 return true
             }
 
-            // ---- Fullscreen video support ----
             override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
                 if (customView != null) {
                     callback?.onCustomViewHidden()
@@ -173,14 +159,10 @@ class TabFragment : Fragment() {
                 }
                 customView = view
                 customViewCallback = callback
-
-                // Add the custom view to the fullscreen container
                 view?.let {
                     fullscreenContainer?.addView(it)
                     fullscreenContainer?.visibility = View.VISIBLE
                 }
-
-                // Hide the WebView and show fullscreen
                 webView.visibility = View.GONE
                 (activity as? DefaultActivity)?.supportActionBar?.hide()
                 (activity as? DefaultActivity)?.window?.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
@@ -188,15 +170,12 @@ class TabFragment : Fragment() {
 
             override fun onHideCustomView() {
                 if (customView == null) return
-
                 customView?.let {
                     fullscreenContainer?.removeView(it)
                 }
                 customView = null
                 customViewCallback?.onCustomViewHidden()
                 customViewCallback = null
-
-                // Restore WebView
                 webView.visibility = View.VISIBLE
                 fullscreenContainer?.visibility = View.GONE
                 (activity as? DefaultActivity)?.supportActionBar?.show()
@@ -221,7 +200,6 @@ class TabFragment : Fragment() {
             dm.enqueue(request)
         }
 
-        // ---- Add fullscreen container to the fragment's root view ----
         (view as? ViewGroup)?.addView(fullscreenContainer)
 
         if (url.isNotEmpty()) webView.loadUrl(url) else webView.loadUrl("https://www.google.com")
@@ -240,17 +218,14 @@ class TabFragment : Fragment() {
         }
     }
 
-    // ---- Check if a video is fullscreen ----
     fun isFullscreen(): Boolean = customView != null
 
-    // ---- Exit fullscreen if active ----
     fun exitFullscreen() {
         if (isFullscreen()) {
             webView.webChromeClient?.onHideCustomView()
         }
     }
 
-    // ----- Public methods -----
     fun loadUrl(url: String) { this.url = url; webView.loadUrl(url) }
     fun goBack(): Boolean { if (webView.canGoBack()) { webView.goBack(); return true }; return false }
     fun goForward(): Boolean { if (webView.canGoForward()) { webView.goForward(); return true }; return false }
