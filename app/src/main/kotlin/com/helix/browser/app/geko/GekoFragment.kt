@@ -40,13 +40,11 @@ class GekoFragment : Fragment() {
         session.open(runtime)
         geckoView.setSession(session)
 
-        // Listen for page loads to update history
-        session.setNavigationDelegate(object : GeckoSession.NavigationDelegate {
+        // ---- Navigation delegate for history tracking ----
+        session.navigationDelegate = object : GeckoSession.NavigationDelegate {
             override fun onLocationChange(session: GeckoSession, url: String?) {
                 url?.let {
-                    // Add to history if it's a new navigation
                     if (history.isEmpty() || history.last() != it) {
-                        // Remove forward history if we navigated back
                         if (currentIndex < history.size - 1) {
                             history.subList(currentIndex + 1, history.size).clear()
                         }
@@ -55,7 +53,7 @@ class GekoFragment : Fragment() {
                     }
                 }
             }
-        })
+        }
 
         if (url.isNotEmpty()) {
             session.loadUri(url)
@@ -64,7 +62,6 @@ class GekoFragment : Fragment() {
         }
     }
 
-    // ---- Navigation methods using custom history ----
     fun loadUrl(url: String) {
         this.url = url
         if (::session.isInitialized) {
