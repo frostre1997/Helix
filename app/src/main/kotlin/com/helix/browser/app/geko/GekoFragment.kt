@@ -11,21 +11,25 @@ import org.mozilla.geckoview.GeckoView
 
 class GekoFragment : Fragment() {
 
-    private lateinit var geckoView: GeckoView   // ← fixed typo
+    private lateinit var geckoView: GeckoView
     private lateinit var session: GeckoSession
     private var url: String = ""
+
+    // ---- Custom history stack ----
+    private val history = mutableListOf<String>()
+    private var currentIndex = -1
 
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
-        geckoView = GeckoView(requireContext())   // ← fixed typo
+        geckoView = GeckoView(requireContext())
         geckoView.layoutParams = ViewGroup.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.MATCH_PARENT
         )
-        return geckoView   // ← fixed typo
+        return geckoView
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -34,7 +38,24 @@ class GekoFragment : Fragment() {
         val runtime = GeckoRuntime.create(requireContext())
         session = GeckoSession()
         session.open(runtime)
-        geckoView.setSession(session)   // ← fixed typo
+        geckoView.setSession(session)
+
+        // Listen for page loads to update history
+        session.setNavigationDelegate(object : GeckoSession.NavigationDelegate {
+            override fun onLocationChange(session: GeckoSession, url: String?) {
+                url?.let {
+                    // Add to history if it's a new navigation
+                    if (history.isEmpty() || history.last() != it) {
+                        // Remove forward history if we navigated back
+                        if (currentIndex < history.size - 1) {
+                            history.subList(currentIndex + 1, history.size).clear()
+                        }
+                        history.add(it)
+                        currentIndex = history.size - 1
+                    }
+                }
+            }
+        })
 
         if (url.isNotEmpty()) {
             session.loadUri(url)
@@ -43,6 +64,7 @@ class GekoFragment : Fragment() {
         }
     }
 
+    // ---- Navigation methods using custom history ----
     fun loadUrl(url: String) {
         this.url = url
         if (::session.isInitialized) {
@@ -51,16 +73,18 @@ class GekoFragment : Fragment() {
     }
 
     fun goBack(): Boolean {
-        if (session.canGoBack()) {   // ← correct method
-            session.goBack()
+        if (currentIndex > 0) {
+            currentIndex--
+            session.loadUri(history[currentIndex])
             return true
         }
         return false
     }
 
     fun goForward(): Boolean {
-        if (session.canGoForward()) {   // ← correct method
-            session.goForward()
+        if (currentIndex < history.size - 1) {
+            currentIndex++
+            session.loadUri(history[currentIndex])
             return true
         }
         return false
@@ -70,6 +94,6 @@ class GekoFragment : Fragment() {
         session.reload()
     }
 
-    fun canGoBack(): Boolean = session.canGoBack()
-    fun canGoForward(): Boolean = session.canGoForward()
+    fun canGoBack(): Boolean = currentIndex > 0
+    fun canGoForward(): Boolean = currentIndex < history.size - 1
 }
