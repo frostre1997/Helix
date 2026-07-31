@@ -40,10 +40,15 @@ class GekoFragment : Fragment() {
         session.open(runtime)
         geckoView.setSession(session)
 
-        // ---- Navigation delegate for history tracking ----
-        session.navigationDelegate = object : GeckoSession.NavigationDelegate {
-            override fun onLocationChange(session: GeckoSession, url: String?) {
-                url?.let {
+        // ---- Track history using onLoadUri ----
+        session.setNavigationDelegate(object : GeckoSession.NavigationDelegate {
+            override fun onLoadUri(
+                session: GeckoSession,
+                uri: String?,
+                flags: Int
+            ): GeckoResult<Boolean>? {
+                uri?.let {
+                    // Add to history before loading
                     if (history.isEmpty() || history.last() != it) {
                         if (currentIndex < history.size - 1) {
                             history.subList(currentIndex + 1, history.size).clear()
@@ -52,8 +57,9 @@ class GekoFragment : Fragment() {
                         currentIndex = history.size - 1
                     }
                 }
+                return null // Allow navigation
             }
-        }
+        })
 
         if (url.isNotEmpty()) {
             session.loadUri(url)
