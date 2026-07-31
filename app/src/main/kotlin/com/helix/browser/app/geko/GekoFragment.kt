@@ -14,6 +14,8 @@ class GekoFragment : Fragment() {
     private lateinit var geckoView: GeckoView
     private lateinit var session: GeckoSession
     private var url: String = ""
+    private var canGoBackState = false
+    private var canGoForwardState = false
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -33,6 +35,15 @@ class GekoFragment : Fragment() {
 
         val runtime = GeckoRuntime.create(requireContext())
         session = GeckoSession()
+        session.navigationDelegate = object : GeckoSession.NavigationDelegate {
+            override fun onCanGoBack(session: GeckoSession, canGoBack: Boolean) {
+                canGoBackState = canGoBack
+            }
+
+            override fun onCanGoForward(session: GeckoSession, canGoForward: Boolean) {
+                canGoForwardState = canGoForward
+            }
+        }
         session.open(runtime)
         geckoView.setSession(session)
 
@@ -73,18 +84,10 @@ class GekoFragment : Fragment() {
     }
 
     fun canGoBack(): Boolean {
-        return try {
-            session.canGoBack()
-        } catch (_: Exception) {
-            false
-        }
+        return canGoBackState
     }
 
     fun canGoForward(): Boolean {
-        return try {
-            session.canGoForward()
-        } catch (_: Exception) {
-            false
-        }
+        return canGoForwardState
     }
 }
