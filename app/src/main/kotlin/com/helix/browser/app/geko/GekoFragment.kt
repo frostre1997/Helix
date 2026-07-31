@@ -15,11 +15,6 @@ class GekoFragment : Fragment() {
     private lateinit var session: GeckoSession
     private var url: String = ""
 
-    // ---- Custom history stack ----
-    private val history = mutableListOf<String>()
-    private var currentIndex = -1
-    private var isBackForward = false
-
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -41,24 +36,6 @@ class GekoFragment : Fragment() {
         session.open(runtime)
         geckoView.setSession(session)
 
-        // ---- Track page loads via ProgressDelegate ----
-        session.setProgressDelegate(object : GeckoSession.ProgressDelegate {
-            override fun onPageStop(session: GeckoSession, success: Boolean) {
-                if (!isBackForward) {
-                    val currentUrl = session.getUri()   // ← FIXED: .getUri() not .uri
-                    if (currentUrl != null && (history.isEmpty() || history.last() != currentUrl)) {
-                        // Remove forward history if we navigated back
-                        if (currentIndex < history.size - 1) {
-                            history.subList(currentIndex + 1, history.size).clear()
-                        }
-                        history.add(currentUrl)
-                        currentIndex = history.size - 1
-                    }
-                }
-                isBackForward = false
-            }
-        })
-
         if (url.isNotEmpty()) {
             session.loadUri(url)
         } else {
@@ -73,30 +50,41 @@ class GekoFragment : Fragment() {
         }
     }
 
-    fun goBack(): Boolean {
-        if (currentIndex > 0) {
-            isBackForward = true
-            currentIndex--
-            session.loadUri(history[currentIndex])
-            return true
-        }
-        return false
-    }
-
-    fun goForward(): Boolean {
-        if (currentIndex < history.size - 1) {
-            isBackForward = true
-            currentIndex++
-            session.loadUri(history[currentIndex])
-            return true
-        }
-        return false
-    }
-
     fun reload() {
         session.reload()
     }
 
-    fun canGoBack(): Boolean = currentIndex > 0
-    fun canGoForward(): Boolean = currentIndex < history.size - 1
+    fun goBack(): Boolean {
+        return try {
+            session.goBack()
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    fun goForward(): Boolean {
+        return try {
+            session.goForward()
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    fun canGoBack(): Boolean {
+        return try {
+            session.canGoBack()
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    fun canGoForward(): Boolean {
+        return try {
+            session.canGoForward()
+        } catch (_: Exception) {
+            false
+        }
+    }
 }
