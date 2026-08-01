@@ -66,7 +66,7 @@ class FloatingSearchBar(
             ).apply {
                 gravity = Gravity.CENTER
                 // Smaller margins = wider card
-                val margin = (78 * context.resources.displayMetrics.density).toInt()
+                val margin = (110 * context.resources.displayMetrics.density).toInt()
                 setMargins(margin, 0, margin, 0)
             }
             setBackgroundColor(Color.parseColor("#1E1E1E"))

@@ -60,16 +60,16 @@ class DefaultActivity : AppCompatActivity() {
             setBackgroundColor(Color.BLACK)
         }
 
-        val toolbarContent = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
+        // ---- Toolbar content (FrameLayout for perfect centering) ----
+        val toolbarContent = FrameLayout(this).apply {
             layoutParams = Toolbar.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(8, 0, 8, 0)
+            setPadding(16, 0, 16, 0)   // edge spacing
         }
 
+        // Helper to create icon buttons (with 8dp spacing between them)
         fun createIconButton(drawableRes: Int, onClick: () -> Unit): ImageButton {
             val dp = resources.displayMetrics.density
             return ImageButton(this).apply {
@@ -77,19 +77,20 @@ class DefaultActivity : AppCompatActivity() {
                 setBackgroundColor(Color.TRANSPARENT)
                 val size = (24 * dp).toInt()
                 val params = LinearLayout.LayoutParams(size, size)
-                params.setMargins(0, 0, (4 * dp).toInt(), 0)
+                params.setMargins(0, 0, (8 * dp).toInt(), 0)
                 layoutParams = params
                 scaleType = ImageView.ScaleType.CENTER
                 setOnClickListener { onClick() }
             }
         }
 
-        // LEFT group
+        // ----- LEFT: Home, Back, Forward, Refresh -----
         val leftGroup = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(
+            layoutParams = FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                Gravity.START or Gravity.CENTER_VERTICAL
             )
         }
         leftGroup.addView(createIconButton(R.drawable.ic_home) {
@@ -106,16 +107,16 @@ class DefaultActivity : AppCompatActivity() {
         })
         toolbarContent.addView(leftGroup)
 
-        // CENTER: Domain (tap to open search)
+        // ----- CENTER: Domain (perfectly centered) -----
         domainText = TextView(this).apply {
             text = "Helix"
             setTextColor(Color.WHITE)
             textSize = 16f
             gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams(
-                0,
+            layoutParams = FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
-                1f
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                Gravity.CENTER
             )
             setOnClickListener {
                 val currentUrl = getCurrentTab()?.webView?.url ?: ""
@@ -124,12 +125,13 @@ class DefaultActivity : AppCompatActivity() {
         }
         toolbarContent.addView(domainText)
 
-        // RIGHT group
+        // ----- RIGHT: Extensions, Star, Download, Menu -----
         val rightGroup = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(
+            layoutParams = FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                Gravity.END or Gravity.CENTER_VERTICAL
             )
         }
         rightGroup.addView(createIconButton(R.drawable.ic_extension) {
@@ -145,6 +147,7 @@ class DefaultActivity : AppCompatActivity() {
         rightGroup.addView(createIconButton(R.drawable.ic_menu) {
             openOptionsMenu()
         })
+        // Remove margin from the last icon (menu)
         (rightGroup.getChildAt(rightGroup.childCount - 1) as ImageButton).apply {
             (layoutParams as LinearLayout.LayoutParams).setMargins(0, 0, 0, 0)
         }
