@@ -43,14 +43,6 @@ class TabFragment : Fragment() {
         webView.settings.loadWithOverviewMode = true
         webView.settings.useWideViewPort = true
 
-        // ---- Automatic User Agent ----
-        val isTablet = resources.configuration.screenLayout and Configuration.SCREENLAYOUT_SIZE_MASK >= Configuration.SCREENLAYOUT_SIZE_LARGE
-        webView.settings.userAgentString = if (isTablet) {
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-        } else {
-            webView.settings.userAgentString
-        }
-
         // ---- Enable autoplay ----
         webView.settings.setMediaPlaybackRequiresUserGesture(false)
 
