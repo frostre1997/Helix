@@ -4,6 +4,7 @@ import android.content.Context
 import android.webkit.WebView
 import org.json.JSONObject
 import java.io.File
+import java.util.regex.Pattern
 
 data class InstalledPlugin(
     val id: String,
@@ -20,8 +21,21 @@ data class InstalledPlugin(
 class PluginManager(private val context: Context) {
     private val pluginsDir = File(context.filesDir, "HelixPlugins")
     private var plugins = mutableListOf<InstalledPlugin>()
+    private var listeners = mutableListOf<() -> Unit>()
 
     init { loadPlugins() }
+
+    fun addListener(listener: () -> Unit) {
+        if (!listeners.contains(listener)) listeners.add(listener)
+    }
+
+    fun removeListener(listener: () -> Unit) {
+        listeners.remove(listener)
+    }
+
+    private fun notifyChanged() {
+        listeners.toList().forEach { it() }
+    }
 
     fun loadPlugins() {
         plugins.clear()
@@ -56,13 +70,17 @@ class PluginManager(private val context: Context) {
     }
 
     fun getInstalledPlugins(): List<InstalledPlugin> = plugins
+
     fun getPluginsForUrl(url: String): List<InstalledPlugin> =
-        plugins.filter { it.enabled && it.matches.any { pattern -> pattern == "*://*/*" || url.contains(pattern.replace("*", "")) } }
+        plugins.filter { it.enabled && it.matches.any { pattern -> matchesPattern(pattern, url) } }
 
     fun injectPlugin(webView: WebView, plugin: InstalledPlugin) {
         plugin.css?.let { css ->
-            val escapedCss = css.replace("\\", "\\\\").replace("'", "\\'")
-            webView.evaluateJavascript("(function() { var style = document.createElement('style'); style.innerHTML = '$escapedCss'; document.head.appendChild(style); })();", null)
+            val escaped = JSONObject.quote(css)
+            webView.evaluateJavascript(
+                "(function() { var style = document.createElement('style'); style.innerHTML = JSON.parse($escaped); document.head.appendChild(style); })();",
+                null
+            )
         }
         plugin.js?.let { webView.evaluateJavascript(it, null) }
     }
@@ -76,9 +94,48 @@ class PluginManager(private val context: Context) {
                 json.put("enabled", enabled)
                 manifestFile.writeText(json.toString())
                 loadPlugins()
+                notifyChanged()
             } catch (_: Exception) {
                 // Ignore
             }
         }
+    }
+
+    fun deletePlugin(id: String) {
+        val plugin = plugins.find { it.id == id } ?: return
+        try {
+            plugin.folder.deleteRecursively()
+            loadPlugins()
+            notifyChanged()
+        } catch (_: Exception) {
+            // Ignore
+        }
+    }
+
+    // Match glob-style patterns: "*://*/*", "https://*.example.com/*", "example.com"
+    private fun matchesPattern(pattern: String, url: String): Boolean {
+        val p = pattern.trim()
+        if (p.isEmpty()) return false
+        if (p == "*://*/*" || p == "*") return true
+        if (!p.contains("://")) {
+            // Bare domain pattern matches any scheme + path on that domain
+            return matchesGlob("*://$p*", url) || matchesGlob("*://*.$p*", url)
+        }
+        return matchesGlob(p, url)
+    }
+
+    private fun matchesGlob(pattern: String, url: String): Boolean {
+        val regex = buildString {
+            append('^')
+            pattern.forEach { ch ->
+                when (ch) {
+                    '*' -> append(".*")
+                    '?' -> append('.')
+                    else -> append(Pattern.quote(ch.toString()))
+                }
+            }
+            append('$')
+        }
+        return url.matches(Regex(regex))
     }
 }

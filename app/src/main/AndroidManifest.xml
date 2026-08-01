@@ -24,6 +24,8 @@
         <activity android:name=".HistoryActivity" />
         <activity android:name=".PluginStoreActivity" />
         <activity android:name=".SettingsActivity" />
+        <activity android:name=".DownloadsActivity" />
+        <activity android:name=".ExtensionsActivity" />
 
     </application>
 

@@ -1,16 +1,21 @@
 package com.helix.browser.app
 
+import android.content.Intent
+import android.content.res.ColorStateList
 import android.graphics.Color
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.util.TypedValue
 import android.view.*
 import android.webkit.WebView
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.PopupMenu
 import androidx.appcompat.widget.Toolbar
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import androidx.viewpager2.widget.ViewPager2
@@ -20,8 +25,6 @@ import com.helix.browser.app.data.History
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.net.URLEncoder
-import android.content.res.ColorStateList
 
 class DefaultActivity : AppCompatActivity() {
 
@@ -30,9 +33,20 @@ class DefaultActivity : AppCompatActivity() {
     private lateinit var domainText: TextView
     private lateinit var swipeRefresh: SwipeRefreshLayout
     private lateinit var starButton: ImageButton
+    private lateinit var refreshButton: ImageButton
     private lateinit var floatingSearchBar: FloatingSearchBar
+    private lateinit var menuButton: ImageButton
     private val tabTitles = mutableMapOf<TabFragment, String>()
     lateinit var pluginManager: PluginManager
+
+    private var immersiveActive = false
+    private var toolbarHidden = false
+
+    companion object {
+        private const val REQ_BOOKMARKS = 1
+        private const val REQ_HISTORY = 2
+        private const val REQ_SETTINGS = 3
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -104,7 +118,7 @@ class DefaultActivity : AppCompatActivity() {
             )
         }
         leftGroup.addView(createIconButton(R.drawable.ic_home, "Home") {
-            loadUrlInCurrentTab("https://www.google.com")
+            loadUrlInCurrentTab(Prefs.homeUrl(this@DefaultActivity))
         })
         leftGroup.addView(createIconButton(R.drawable.ic_back, "Back") {
             getCurrentTab()?.goBack()
@@ -112,9 +126,13 @@ class DefaultActivity : AppCompatActivity() {
         leftGroup.addView(createIconButton(R.drawable.ic_forward, "Forward") {
             getCurrentTab()?.goForward()
         })
-        leftGroup.addView(createIconButton(R.drawable.ic_refresh, "Refresh") {
-            getCurrentTab()?.reload()
-        })
+        refreshButton = createIconButton(R.drawable.ic_refresh, "Refresh") {
+            val tab = getCurrentTab()
+            if (tab != null) {
+                if (tab.isPageLoading()) tab.stopLoading() else tab.reload()
+            }
+        }
+        leftGroup.addView(refreshButton)
         toolbarContent.addView(leftGroup)
 
         // ----- CENTER: Domain (perfectly centered) -----
@@ -146,18 +164,19 @@ class DefaultActivity : AppCompatActivity() {
             )
         }
         rightGroup.addView(createIconButton(R.drawable.ic_extension, "Extensions") {
-            Toast.makeText(this@DefaultActivity, "Extensions coming soon", Toast.LENGTH_SHORT).show()
+            startActivity(Intent(this@DefaultActivity, ExtensionsActivity::class.java))
         })
         starButton = createIconButton(R.drawable.ic_star, "Bookmark") {
             toggleBookmark()
         }
         rightGroup.addView(starButton)
-        rightGroup.addView(createIconButton(R.drawable.ic_download, "Download") {
-            Toast.makeText(this@DefaultActivity, "Download manager", Toast.LENGTH_SHORT).show()
+        rightGroup.addView(createIconButton(R.drawable.ic_download, "Downloads") {
+            startActivity(Intent(this@DefaultActivity, DownloadsActivity::class.java))
         })
-        rightGroup.addView(createIconButton(R.drawable.ic_menu, "Menu") {
-            openOptionsMenu()
-        })
+        menuButton = createIconButton(R.drawable.ic_menu, "Menu") {
+            showMainMenu()
+        }
+        rightGroup.addView(menuButton)
         // Remove margin from the last icon (menu) if present
         if (rightGroup.childCount > 0) {
             (rightGroup.getChildAt(rightGroup.childCount - 1) as? ImageButton)?.let { btn ->
@@ -215,7 +234,7 @@ class DefaultActivity : AppCompatActivity() {
 
         adapter = TabAdapter(this)
         viewPager.adapter = adapter
-        addNewTab("https://shields.io")
+        addNewTab(Prefs.homeUrl(this))
 
         swipeRefresh.setOnRefreshListener {
             getCurrentTab()?.reload()
@@ -224,16 +243,21 @@ class DefaultActivity : AppCompatActivity() {
 
         pluginManager = PluginManager(this)
         updateStarIcon(null)
+
+        // Apply fullscreen-mode setting on startup
+        if (Prefs.fullscreenMode(this)) {
+            setSystemBarsImmersive(true)
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Refresh plugin list in case Extensions/Plugin Store changed anything
+        pluginManager.loadPlugins()
     }
 
     // ----- helpers -----
     private fun dpToPx(dp: Int): Int = (dp * resources.displayMetrics.density).toInt()
-
-    private fun encodeQuery(q: String): String = try {
-        URLEncoder.encode(q, "UTF-8")
-    } catch (_: Exception) {
-        q
-    }
 
     private fun setStarTint(colorInt: Int) {
         starButton.imageTintList = ColorStateList.valueOf(colorInt)
@@ -297,31 +321,118 @@ class DefaultActivity : AppCompatActivity() {
         }
     }
 
-    // ----- Menu -----
-    override fun onCreateOptionsMenu(menu: Menu?): Boolean {
-        menu?.add(0, 1, 0, "Refresh")?.setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER)
-        menu?.add(0, 2, 1, "Back")
-        menu?.add(0, 3, 2, "Forward")
-        menu?.add(0, 4, 3, "Home")
-        menu?.add(0, 5, 4, "Bookmarks")
-        menu?.add(0, 6, 5, "History")
-        menu?.add(0, 7, 6, "Plugin Store")
-        menu?.add(0, 8, 7, "Settings")
-        return true
+    // ----- Progress (refresh / stop toggle) -----
+    fun onTabProgressChanged(tab: TabFragment, progress: Int) {
+        if (getCurrentTab() !== tab) return
+        val loading = progress in 1..99
+        refreshButton.setImageResource(if (loading) R.drawable.ic_stop else R.drawable.ic_refresh)
+        refreshButton.contentDescription = if (loading) "Stop" else "Refresh"
     }
 
-    override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        when (item.itemId) {
-            1 -> getCurrentTab()?.reload()
-            2 -> getCurrentTab()?.goBack()
-            3 -> getCurrentTab()?.goForward()
-            4 -> loadUrlInCurrentTab("https://www.google.com")
-            5 -> startActivity(android.content.Intent(this, BookmarksActivity::class.java))
-            6 -> startActivity(android.content.Intent(this, HistoryActivity::class.java))
-            7 -> startActivity(android.content.Intent(this, PluginStoreActivity::class.java))
-            8 -> startActivity(android.content.Intent(this, SettingsActivity::class.java))
+    // ----- Main menu (PopupMenu anchored to the menu button) -----
+    private fun showMainMenu() {
+        val popup = PopupMenu(this, menuButton)
+        popup.menuInflater.inflate(R.menu.main_menu, popup.menu)
+        popup.setOnMenuItemClickListener { item ->
+            performMenuAction(item.itemId)
+            true
         }
-        return true
+        popup.setForceShowIcon(true)
+        try {
+            popup.show()
+        } catch (_: Exception) {
+            Toast.makeText(this, "Menu unavailable", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun performMenuAction(itemId: Int) {
+        when (itemId) {
+            R.id.action_new_tab -> addNewTab()
+            R.id.action_home -> loadUrlInCurrentTab(Prefs.homeUrl(this))
+            R.id.action_refresh -> getCurrentTab()?.reload()
+            R.id.action_share -> shareCurrentPage()
+            R.id.action_bookmarks -> startActivityForResult(
+                Intent(this, BookmarksActivity::class.java), REQ_BOOKMARKS
+            )
+            R.id.action_history -> startActivityForResult(
+                Intent(this, HistoryActivity::class.java), REQ_HISTORY
+            )
+            R.id.action_downloads -> startActivity(Intent(this, DownloadsActivity::class.java))
+            R.id.action_extensions -> startActivity(Intent(this, ExtensionsActivity::class.java))
+            R.id.action_plugins -> startActivity(Intent(this, PluginStoreActivity::class.java))
+            R.id.action_fullscreen -> toggleAppFullscreen()
+            R.id.action_settings -> startActivityForResult(
+                Intent(this, SettingsActivity::class.java), REQ_SETTINGS
+            )
+        }
+    }
+
+    private fun shareCurrentPage() {
+        val tab = getCurrentTab() ?: return
+        val url = tab.webView.url ?: return
+        val title = tab.webView.title ?: url
+        try {
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_SUBJECT, title)
+                putExtra(Intent.EXTRA_TEXT, "$title\n$url")
+            }
+            startActivity(Intent.createChooser(intent, "Share page"))
+        } catch (_: Exception) {
+            Toast.makeText(this, "Sharing failed", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // ----- Fullscreen handling -----
+    private fun setSystemBarsImmersive(enabled: Boolean) {
+        val decor = window.decorView
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val controller = WindowInsetsControllerCompat(window, decor)
+            if (enabled) {
+                controller.hide(WindowInsetsCompat.Type.systemBars())
+                controller.systemBarsBehavior =
+                    WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            } else {
+                controller.show(WindowInsetsCompat.Type.systemBars())
+            }
+        } else {
+            @Suppress("DEPRECATION")
+            decor.systemUiVisibility = if (enabled) {
+                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or
+                    View.SYSTEM_UI_FLAG_FULLSCREEN or
+                    View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or
+                    View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
+                    View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or
+                    View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+            } else {
+                View.SYSTEM_UI_FLAG_VISIBLE
+            }
+        }
+    }
+
+    fun enterFullscreenMode() {
+        setSystemBarsImmersive(true)
+        supportActionBar?.hide()
+        toolbarHidden = true
+    }
+
+    fun exitFullscreenMode() {
+        if (!immersiveActive) {
+            setSystemBarsImmersive(false)
+            supportActionBar?.show()
+        }
+        toolbarHidden = false
+    }
+
+    private fun toggleAppFullscreen() {
+        immersiveActive = !immersiveActive
+        setSystemBarsImmersive(immersiveActive)
+        Toast.makeText(this, if (immersiveActive) "Fullscreen on" else "Fullscreen off", Toast.LENGTH_SHORT).show()
+    }
+
+    // ----- Options menu (hardware menu / system) -----
+    override fun onCreateOptionsMenu(menu: Menu?): Boolean {
+        return false
     }
 
     override fun onBackPressed() {
@@ -334,6 +445,11 @@ class DefaultActivity : AppCompatActivity() {
             currentTab.exitFullscreen()
             return
         }
+        if (immersiveActive) {
+            immersiveActive = false
+            exitFullscreenMode()
+            return
+        }
         if (currentTab?.canGoBack() == true) {
             currentTab.goBack()
         } else {
@@ -341,8 +457,21 @@ class DefaultActivity : AppCompatActivity() {
         }
     }
 
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (resultCode == RESULT_OK && data != null) {
+            val url = data.getStringExtra("url")
+            if (!url.isNullOrEmpty() && (requestCode == REQ_BOOKMARKS || requestCode == REQ_HISTORY)) {
+                getCurrentTab()?.loadUrl(url)
+            }
+        }
+        if (requestCode == REQ_SETTINGS) {
+            getTabs().forEach { it.applySettings() }
+        }
+    }
+
     // ----- Tab management -----
-    fun addNewTab(url: String = "https://www.google.com") {
+    fun addNewTab(url: String = Prefs.homeUrl(this)) {
         val fragment = TabFragment().apply { this.url = url }
         adapter.addTab(fragment)
         viewPager.setCurrentItem(adapter.getTabCount() - 1, true)
@@ -406,18 +535,13 @@ class DefaultActivity : AppCompatActivity() {
         }
     }
 
-    private fun showTabSwitcher() {
-        val bottomSheet = TabSwitcherBottomSheet()
-        bottomSheet.show(supportFragmentManager, "TabSwitcher")
-    }
-
     private fun loadUrlInCurrentTab(input: String) {
         if (input.isBlank()) return
         val trimmed = input.trim()
-        val url = when {
-            trimmed.startsWith("http://") || trimmed.startsWith("https://") -> trimmed
-            trimmed.contains(".") && !trimmed.contains(" ") -> "https://$trimmed"
-            else -> "https://www.google.com/search?q=${encodeQuery(trimmed)}"
+        val url = if (Prefs.isUrl(trimmed)) {
+            Prefs.toUrl(trimmed)
+        } else {
+            Prefs.searchUrl(this, trimmed)
         }
         getCurrentTab()?.loadUrl(url)
     }
