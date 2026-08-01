@@ -7,7 +7,9 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONArray
@@ -70,32 +72,43 @@ class PluginStoreActivity : AppCompatActivity() {
     private fun fetchPlugins() {
         lifecycleScope.launch {
             try {
-                val response = client.newCall(Request.Builder().url(PLUGIN_API_URL).build()).execute()
-                val jsonString = response.body?.string()
-                if (jsonString != null) {
-                    val jsonArray = JSONArray(jsonString)
-                    val plugins = mutableListOf<StorePlugin>()
-                    for (i in 0 until jsonArray.length()) {
-                        val obj = jsonArray.getJSONObject(i)
-                        val tagsArray = obj.getJSONArray("tags")
-                        val tags = (0 until tagsArray.length()).map { tagsArray.getString(it) }
-                        plugins.add(
-                            StorePlugin(
-                                id = obj.getString("id"),
-                                name = obj.getString("name"),
-                                version = obj.getString("version"),
-                                description = obj.getString("description"),
-                                author = obj.getString("author"),
-                                icon = obj.getString("icon"),
-                                downloadUrl = obj.getString("downloadUrl"),
-                                tags = tags
-                            )
-                        )
+                // Do network call on IO dispatcher to avoid blocking the main thread
+                val jsonString = withContext(Dispatchers.IO) {
+                    client.newCall(Request.Builder().url(PLUGIN_API_URL).build()).execute().use { resp ->
+                        resp.body?.string()
                     }
+                }
+
+                if (!jsonString.isNullOrEmpty()) {
+                    // Parse on IO as well (could be slightly heavy)
+                    val plugins = withContext(Dispatchers.IO) {
+                        val jsonArray = JSONArray(jsonString)
+                        val list = mutableListOf<StorePlugin>()
+                        for (i in 0 until jsonArray.length()) {
+                            val obj = jsonArray.getJSONObject(i)
+                            val tagsArray = obj.getJSONArray("tags")
+                            val tags = (0 until tagsArray.length()).map { tagsArray.getString(it) }
+                            list.add(
+                                StorePlugin(
+                                    id = obj.getString("id"),
+                                    name = obj.getString("name"),
+                                    version = obj.getString("version"),
+                                    description = obj.getString("description"),
+                                    author = obj.getString("author"),
+                                    icon = obj.getString("icon"),
+                                    downloadUrl = obj.getString("downloadUrl"),
+                                    tags = tags
+                                )
+                            )
+                        }
+                        list
+                    }
+
+                    // Update UI on main thread
                     adapter.updatePlugins(plugins)
                     adapter.markInstalled(PluginManager(this@PluginStoreActivity).getInstalledPlugins().map { it.id }.toSet())
                 }
-            } catch (_: Exception) {
+            } catch (e: Exception) {
                 Toast.makeText(this@PluginStoreActivity, "Failed to load plugins", Toast.LENGTH_SHORT).show()
             }
         }
@@ -106,23 +119,39 @@ class PluginStoreActivity : AppCompatActivity() {
             try {
                 val baseUrl = "https://helixplugins.onrender.com"
                 val downloadUrl = baseUrl + plugin.downloadUrl
-                val response = client.newCall(Request.Builder().url(downloadUrl).build()).execute()
-                val zipFile = File(filesDir, "${plugin.id}.zip")
-                response.body?.let { zipFile.writeBytes(it.bytes()) }
 
-                val destDir = File(filesDir, "HelixPlugins/${plugin.id}")
-                destDir.mkdirs()
-                ZipFile(zipFile).use { zip ->
-                    zip.entries().asSequence().forEach { entry ->
-                        val target = File(destDir, entry.name)
-                        target.parentFile?.mkdirs()
-                        zip.getInputStream(entry).use { input -> target.outputStream().use { output -> input.copyTo(output) } }
+                // Download and unzip on IO dispatcher
+                val zipBytes = withContext(Dispatchers.IO) {
+                    client.newCall(Request.Builder().url(downloadUrl).build()).execute().use { resp ->
+                        resp.body?.bytes()
                     }
                 }
-                zipFile.delete()
+
+                if (zipBytes == null) {
+                    Toast.makeText(this@PluginStoreActivity, "Install failed", Toast.LENGTH_SHORT).show()
+                    return@launch
+                }
+
+                val zipFile = File(filesDir, "${plugin.id}.zip")
+
+                withContext(Dispatchers.IO) {
+                    zipFile.writeBytes(zipBytes)
+
+                    val destDir = File(filesDir, "HelixPlugins/${plugin.id}")
+                    destDir.mkdirs()
+                    ZipFile(zipFile).use { zip ->
+                        zip.entries().asSequence().forEach { entry ->
+                            val target = File(destDir, entry.name)
+                            target.parentFile?.mkdirs()
+                            zip.getInputStream(entry).use { input -> target.outputStream().use { output -> input.copyTo(output) } }
+                        }
+                    }
+                    zipFile.delete()
+                }
+
                 Toast.makeText(this@PluginStoreActivity, "${plugin.name} installed!", Toast.LENGTH_SHORT).show()
                 adapter.markInstalled(PluginManager(this@PluginStoreActivity).getInstalledPlugins().map { it.id }.toSet())
-            } catch (_: Exception) {
+            } catch (e: Exception) {
                 Toast.makeText(this@PluginStoreActivity, "Install failed", Toast.LENGTH_SHORT).show()
             }
         }
