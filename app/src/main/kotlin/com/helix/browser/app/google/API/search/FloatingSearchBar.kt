@@ -35,13 +35,13 @@ class FloatingSearchBar(
     private var isShowing = false
 
     init {
-        // ---- Root overlay (full screen, dim background) ----
+        // ---- Root overlay ----
         overlay = FrameLayout(context).apply {
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
             )
-            setBackgroundColor(Color.parseColor("#CC000000"))
+            setBackgroundColor(Color.parseColor("#00000000"))
             visibility = View.GONE
             setOnTouchListener { _, event ->
                 if (event.action == MotionEvent.ACTION_UP) {
@@ -57,16 +57,16 @@ class FloatingSearchBar(
             }
         }
 
-        // ---- Centered card (narrower, like before) ----
+        // ---- Wider card ----
         card = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,   // <- WRAP_CONTENT = narrower
+                ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             ).apply {
                 gravity = Gravity.CENTER
-                // Increase left/right margins to keep it centered but narrower
-                val margin = (48 * context.resources.displayMetrics.density).toInt()
+                // Smaller margins = wider card
+                val margin = (16 * context.resources.displayMetrics.density).toInt()
                 setMargins(margin, 0, margin, 0)
             }
             setBackgroundColor(Color.parseColor("#1E1E1E"))
@@ -76,20 +76,21 @@ class FloatingSearchBar(
             setOnTouchListener { _, _ -> false }
         }
 
-        // ---- Search input with icon ----
+        // ---- Search input with icon on the right ----
         searchInput = EditText(context).apply {
-            hint = "Search or enter URL"
+            hint = "Search on Helix"
             setHintTextColor(Color.parseColor("#888888"))
             setTextColor(Color.WHITE)
             setBackgroundColor(Color.TRANSPARENT)
 
-            textSize = 20f
+            // Bigger text
+            textSize = 18f
             val inputPadding = (16 * context.resources.displayMetrics.density).toInt()
             setPadding(inputPadding, inputPadding, inputPadding, inputPadding)
 
             val icon: Drawable? = ContextCompat.getDrawable(context, R.drawable.ic_search)
             icon?.setTint(Color.WHITE)
-            setCompoundDrawablesWithIntrinsicBounds(icon, null, null, null)
+            setCompoundDrawablesWithIntrinsicBounds(null, null, icon, null)
             compoundDrawablePadding = (16 * context.resources.displayMetrics.density).toInt()
 
             inputType = android.text.InputType.TYPE_TEXT_VARIATION_URI
@@ -120,7 +121,7 @@ class FloatingSearchBar(
 
         overlay.addView(card)
 
-        // ---- Text watcher for suggestions ----
+        // ---- Text watcher ----
         searchInput.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
@@ -148,7 +149,7 @@ class FloatingSearchBar(
         }
     }
 
-    // ----- Show overlay -----
+    // ----- Show -----
     fun show(initialText: String = "") {
         if (isShowing) return
         searchInput.setText(initialText)
@@ -162,7 +163,7 @@ class FloatingSearchBar(
         imm.showSoftInput(searchInput, InputMethodManager.SHOW_IMPLICIT)
     }
 
-    // ----- Hide overlay -----
+    // ----- Hide -----
     fun hide() {
         if (!isShowing) return
         overlay.animate().alpha(0f).setDuration(200).setListener(object : AnimatorListenerAdapter() {
