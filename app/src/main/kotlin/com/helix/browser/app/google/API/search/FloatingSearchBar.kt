@@ -66,12 +66,12 @@ class FloatingSearchBar(
             ).apply {
                 gravity = Gravity.CENTER
                 // Smaller margins = wider card
-                val margin = (16 * context.resources.displayMetrics.density).toInt()
+                val margin = (42 * context.resources.displayMetrics.density).toInt()
                 setMargins(margin, 0, margin, 0)
             }
             setBackgroundColor(Color.parseColor("#1E1E1E"))
             elevation = 16f
-            val padding = (20 * context.resources.displayMetrics.density).toInt()
+            val padding = (36 * context.resources.displayMetrics.density).toInt()
             setPadding(padding, padding, padding, padding)
             setOnTouchListener { _, _ -> false }
         }
