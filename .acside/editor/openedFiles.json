@@ -4,9 +4,54 @@
       "file": "/storage/emulated/0/AndroidIDEProjects/Helix/app/src/main/kotlin/com/helix/browser/app/DefaultActivity.kt",
       "selection": {
         "end": {
+          "column": 1,
+          "index": 13732,
+          "line": 379
+        },
+        "start": {
           "column": 0,
-          "index": 13369,
-          "line": 377
+          "index": 0,
+          "line": 0
+        }
+      }
+    },
+    {
+      "file": "/storage/emulated/0/AndroidIDEProjects/Helix/app/src/main/res/drawable/ic_download.xml",
+      "selection": {
+        "end": {
+          "column": 0,
+          "index": 0,
+          "line": 0
+        },
+        "start": {
+          "column": 0,
+          "index": 0,
+          "line": 0
+        }
+      }
+    },
+    {
+      "file": "/storage/emulated/0/AndroidIDEProjects/Helix/app/src/main/res/drawable/ic_extension.xml",
+      "selection": {
+        "end": {
+          "column": 9,
+          "index": 580,
+          "line": 8
+        },
+        "start": {
+          "column": 9,
+          "index": 580,
+          "line": 8
+        }
+      }
+    },
+    {
+      "file": "/storage/emulated/0/AndroidIDEProjects/Helix/app/src/main/kotlin/com/helix/browser/app/tabs/TabFragment.kt",
+      "selection": {
+        "end": {
+          "column": 0,
+          "index": 10311,
+          "line": 239
         },
         "start": {
           "column": 0,
@@ -16,5 +61,5 @@
       }
     }
   ],
-  "selectedFile": "/storage/emulated/0/AndroidIDEProjects/Helix/app/src/main/kotlin/com/helix/browser/app/DefaultActivity.kt"
+  "selectedFile": "/storage/emulated/0/AndroidIDEProjects/Helix/app/src/main/kotlin/com/helix/browser/app/tabs/TabFragment.kt"
 }

@@ -77,7 +77,7 @@ class DefaultActivity : AppCompatActivity() {
                 setBackgroundColor(Color.TRANSPARENT)
                 val size = (24 * dp).toInt()
                 val params = LinearLayout.LayoutParams(size, size)
-                params.setMargins(0, 0, (8 * dp).toInt(), 0)
+                params.setMargins(0, 0, (16 * dp).toInt(), 0)
                 layoutParams = params
                 scaleType = ImageView.ScaleType.CENTER
                 setOnClickListener { onClick() }
