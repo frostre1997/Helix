@@ -32,7 +32,7 @@ class FloatingSearchBar(
     private val suggestionsList: RecyclerView
     private val suggestionAdapter: SearchSuggestionAdapter
     private val suggestionClient = OkHttpClient()
-    private var isShowing = false
+    private var showing = false
 
     init {
         // ---- Root overlay ----
@@ -151,11 +151,11 @@ class FloatingSearchBar(
 
     // ----- Show -----
     fun show(initialText: String = "") {
-        if (isShowing) return
+        if (showing) return
         searchInput.setText(initialText)
         searchInput.setSelection(searchInput.text.length)
         overlay.visibility = View.VISIBLE
-        isShowing = true
+        showing = true
         overlay.alpha = 0f
         overlay.animate().alpha(1f).setDuration(200).start()
         searchInput.requestFocus()
@@ -165,34 +165,37 @@ class FloatingSearchBar(
 
     // ----- Hide -----
     fun hide() {
-        if (!isShowing) return
+        if (!showing) return
         overlay.animate().alpha(0f).setDuration(200).setListener(object : AnimatorListenerAdapter() {
             override fun onAnimationEnd(animation: Animator) {
                 overlay.visibility = View.GONE
-                isShowing = false
+                showing = false
                 suggestionsList.visibility = View.GONE
                 suggestionAdapter.updateSuggestions(emptyList())
                 val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
                 imm.hideSoftInputFromWindow(searchInput.windowToken, 0)
                 searchInput.clearFocus()
+                // remove listener to avoid reusing the same listener instance
+                overlay.animate().setListener(null)
             }
         }).start()
     }
 
     // ----- Toggle -----
     fun toggle(initialText: String = "") {
-        if (isShowing) hide() else show(initialText)
+        if (showing) hide() else show(initialText)
     }
 
     // ----- Get root view -----
     fun getView(): View = overlay
 
     // ----- Check if showing -----
-    fun isShowing(): Boolean = isShowing
+    fun isShowing(): Boolean = showing
 
     // ----- Smart suggestions -----
     private fun fetchSuggestions(query: String) {
-        Handler(Looper.getMainLooper()).post {
+        // Run network call off the main thread and post results back to the main looper
+        Thread {
             try {
                 val url = "https://suggestqueries.google.com/complete/search?client=firefox&q=${Uri.encode(query)}"
                 val request = Request.Builder().url(url).build()
@@ -205,13 +208,15 @@ class FloatingSearchBar(
                     for (i in 0 until suggestionsArray.length()) {
                         suggestions.add(suggestionsArray.getString(i))
                     }
-                    suggestionAdapter.updateSuggestions(suggestions)
-                    suggestionsList.visibility = if (suggestions.isNotEmpty()) View.VISIBLE else View.GONE
+                    Handler(Looper.getMainLooper()).post {
+                        suggestionAdapter.updateSuggestions(suggestions)
+                        suggestionsList.visibility = if (suggestions.isNotEmpty()) View.VISIBLE else View.GONE
+                    }
                 }
             } catch (_: Exception) {
-                // Ignore
+                // Ignore network errors silently
             }
-        }
+        }.start()
     }
 
     // ----- Clean up -----
