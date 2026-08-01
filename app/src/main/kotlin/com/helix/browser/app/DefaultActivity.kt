@@ -3,6 +3,7 @@ package com.helix.browser.app
 import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
+import android.util.TypedValue
 import android.view.*
 import android.webkit.WebView
 import android.widget.*
@@ -16,7 +17,11 @@ import androidx.viewpager2.widget.ViewPager2
 import com.helix.browser.app.data.AppDatabase
 import com.helix.browser.app.data.Bookmark
 import com.helix.browser.app.data.History
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.net.URLEncoder
+import android.content.res.ColorStateList
 
 class DefaultActivity : AppCompatActivity() {
 
@@ -52,7 +57,7 @@ class DefaultActivity : AppCompatActivity() {
 
         // ----- Toolbar -----
         val toolbar = Toolbar(this).apply {
-            val height = (40 * resources.displayMetrics.density).toInt()
+            val height = dpToPx(40)
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 height
@@ -66,21 +71,26 @@ class DefaultActivity : AppCompatActivity() {
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
-            setPadding(16, 0, 16, 0)   // edge spacing
+            setPadding(dpToPx(16), 0, dpToPx(16), 0)   // edge spacing
         }
 
         // Helper to create icon buttons (with 8dp spacing between them)
-        fun createIconButton(drawableRes: Int, onClick: () -> Unit): ImageButton {
-            val dp = resources.displayMetrics.density
+        fun createIconButton(drawableRes: Int, contentDesc: String, onClick: () -> Unit): ImageButton {
+            val size = dpToPx(24)
             return ImageButton(this).apply {
                 setImageResource(drawableRes)
-                setBackgroundColor(Color.TRANSPARENT)
-                val size = (24 * dp).toInt()
+                // use selectable item background borderless (ripple) from theme:
+                val outValue = TypedValue()
+                context.theme.resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, outValue, true)
+                setBackgroundResource(outValue.resourceId)
                 val params = LinearLayout.LayoutParams(size, size)
-                params.setMargins(0, 0, (16 * dp).toInt(), 0)
+                params.setMargins(0, 0, dpToPx(16), 0)
                 layoutParams = params
                 scaleType = ImageView.ScaleType.CENTER
                 setOnClickListener { onClick() }
+                contentDescription = contentDesc
+                // default tint
+                imageTintList = ColorStateList.valueOf(Color.GRAY)
             }
         }
 
@@ -93,16 +103,16 @@ class DefaultActivity : AppCompatActivity() {
                 Gravity.START or Gravity.CENTER_VERTICAL
             )
         }
-        leftGroup.addView(createIconButton(R.drawable.ic_home) {
+        leftGroup.addView(createIconButton(R.drawable.ic_home, "Home") {
             loadUrlInCurrentTab("https://www.google.com")
         })
-        leftGroup.addView(createIconButton(R.drawable.ic_back) {
+        leftGroup.addView(createIconButton(R.drawable.ic_back, "Back") {
             getCurrentTab()?.goBack()
         })
-        leftGroup.addView(createIconButton(R.drawable.ic_forward) {
+        leftGroup.addView(createIconButton(R.drawable.ic_forward, "Forward") {
             getCurrentTab()?.goForward()
         })
-        leftGroup.addView(createIconButton(R.drawable.ic_refresh) {
+        leftGroup.addView(createIconButton(R.drawable.ic_refresh, "Refresh") {
             getCurrentTab()?.reload()
         })
         toolbarContent.addView(leftGroup)
@@ -118,6 +128,7 @@ class DefaultActivity : AppCompatActivity() {
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 Gravity.CENTER
             )
+            contentDescription = "Current domain"
             setOnClickListener {
                 val currentUrl = getCurrentTab()?.webView?.url ?: ""
                 floatingSearchBar.show(currentUrl)
@@ -134,27 +145,33 @@ class DefaultActivity : AppCompatActivity() {
                 Gravity.END or Gravity.CENTER_VERTICAL
             )
         }
-        rightGroup.addView(createIconButton(R.drawable.ic_extension) {
+        rightGroup.addView(createIconButton(R.drawable.ic_extension, "Extensions") {
             Toast.makeText(this@DefaultActivity, "Extensions coming soon", Toast.LENGTH_SHORT).show()
         })
-        starButton = createIconButton(R.drawable.ic_star) {
+        starButton = createIconButton(R.drawable.ic_star, "Bookmark") {
             toggleBookmark()
         }
         rightGroup.addView(starButton)
-        rightGroup.addView(createIconButton(R.drawable.ic_download) {
+        rightGroup.addView(createIconButton(R.drawable.ic_download, "Download") {
             Toast.makeText(this@DefaultActivity, "Download manager", Toast.LENGTH_SHORT).show()
         })
-        rightGroup.addView(createIconButton(R.drawable.ic_menu) {
+        rightGroup.addView(createIconButton(R.drawable.ic_menu, "Menu") {
             openOptionsMenu()
         })
-        // Remove margin from the last icon (menu)
-        (rightGroup.getChildAt(rightGroup.childCount - 1) as ImageButton).apply {
-            (layoutParams as LinearLayout.LayoutParams).setMargins(0, 0, 0, 0)
+        // Remove margin from the last icon (menu) if present
+        if (rightGroup.childCount > 0) {
+            (rightGroup.getChildAt(rightGroup.childCount - 1) as? ImageButton)?.let { btn ->
+                (btn.layoutParams as? LinearLayout.LayoutParams)?.setMargins(0, 0, 0, 0)
+            }
         }
         toolbarContent.addView(rightGroup)
 
         toolbar.addView(toolbarContent)
         content.addView(toolbar)
+
+        // Set toolbar as support ActionBar so title updates work
+        setSupportActionBar(toolbar)
+        supportActionBar?.setDisplayShowTitleEnabled(false)
 
         // ----- SwipeRefresh + ViewPager -----
         swipeRefresh = SwipeRefreshLayout(this).apply {
@@ -209,22 +226,39 @@ class DefaultActivity : AppCompatActivity() {
         updateStarIcon(null)
     }
 
+    // ----- helpers -----
+    private fun dpToPx(dp: Int): Int = (dp * resources.displayMetrics.density).toInt()
+
+    private fun encodeQuery(q: String): String = try {
+        URLEncoder.encode(q, "UTF-8")
+    } catch (_: Exception) {
+        q
+    }
+
+    private fun setStarTint(colorInt: Int) {
+        starButton.imageTintList = ColorStateList.valueOf(colorInt)
+    }
+
     // ----- Bookmark toggle -----
     private fun toggleBookmark() {
         val tab = getCurrentTab() ?: return
         val url = tab.webView.url ?: return
         val title = tab.webView.title ?: url
         lifecycleScope.launch {
-            val db = AppDatabase.getInstance(this@DefaultActivity)
-            val existing = db.bookmarkDao().getBookmarkByUrl(url)
-            if (existing != null) {
-                db.bookmarkDao().delete(existing)
-                starButton.setColorFilter(Color.GRAY)
-                Toast.makeText(this@DefaultActivity, "Bookmark removed", Toast.LENGTH_SHORT).show()
-            } else {
-                db.bookmarkDao().insert(Bookmark(url = url, title = title))
-                starButton.setColorFilter(Color.YELLOW)
-                Toast.makeText(this@DefaultActivity, "Bookmark added", Toast.LENGTH_SHORT).show()
+            try {
+                val db = AppDatabase.getInstance(this@DefaultActivity)
+                val existing = withContext(Dispatchers.IO) { db.bookmarkDao().getBookmarkByUrl(url) }
+                if (existing != null) {
+                    withContext(Dispatchers.IO) { db.bookmarkDao().delete(existing) }
+                    withContext(Dispatchers.Main) { setStarTint(Color.GRAY) }
+                    Toast.makeText(this@DefaultActivity, "Bookmark removed", Toast.LENGTH_SHORT).show()
+                } else {
+                    withContext(Dispatchers.IO) { db.bookmarkDao().insert(Bookmark(url = url, title = title)) }
+                    withContext(Dispatchers.Main) { setStarTint(Color.YELLOW) }
+                    Toast.makeText(this@DefaultActivity, "Bookmark added", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                Toast.makeText(this@DefaultActivity, "Bookmark error: ${e.message}", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -247,13 +281,19 @@ class DefaultActivity : AppCompatActivity() {
 
     private fun updateStarIcon(url: String?) {
         if (url.isNullOrEmpty()) {
-            starButton.setColorFilter(Color.GRAY)
+            setStarTint(Color.GRAY)
             return
         }
         lifecycleScope.launch {
-            val db = AppDatabase.getInstance(this@DefaultActivity)
-            val bookmark = db.bookmarkDao().getBookmarkByUrl(url)
-            starButton.setColorFilter(if (bookmark != null) Color.YELLOW else Color.GRAY)
+            try {
+                val db = AppDatabase.getInstance(this@DefaultActivity)
+                val bookmark = withContext(Dispatchers.IO) { db.bookmarkDao().getBookmarkByUrl(url) }
+                withContext(Dispatchers.Main) {
+                    setStarTint(if (bookmark != null) Color.YELLOW else Color.GRAY)
+                }
+            } catch (_: Exception) {
+                withContext(Dispatchers.Main) { setStarTint(Color.GRAY) }
+            }
         }
     }
 
@@ -351,8 +391,12 @@ class DefaultActivity : AppCompatActivity() {
 
     fun saveHistory(url: String, title: String) {
         lifecycleScope.launch {
-            AppDatabase.getInstance(this@DefaultActivity).historyDao()
-                .insert(History(url = url, title = title))
+            try {
+                val db = AppDatabase.getInstance(this@DefaultActivity)
+                withContext(Dispatchers.IO) { db.historyDao().insert(History(url = url, title = title)) }
+            } catch (_: Exception) {
+                // ignore
+            }
         }
     }
 
@@ -373,7 +417,7 @@ class DefaultActivity : AppCompatActivity() {
         val url = when {
             trimmed.startsWith("http://") || trimmed.startsWith("https://") -> trimmed
             trimmed.contains(".") && !trimmed.contains(" ") -> "https://$trimmed"
-            else -> "https://www.google.com/search?q=${trimmed.replace(' ', '+')}"
+            else -> "https://www.google.com/search?q=${encodeQuery(trimmed)}"
         }
         getCurrentTab()?.loadUrl(url)
     }
